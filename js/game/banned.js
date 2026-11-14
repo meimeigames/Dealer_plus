@@ -1,9 +1,9 @@
 // Forbidden goods from the Shade: jammers, spy cameras, police scanners, odometer "correctors", unstamped
 // cigarettes… They carry traces (a batch number in the customs database, the courier's waybill, a GPS tag, prints)
-// that can be wiped by hand or by a "master". They can only be sold back through the Shade: the deal closes in
-// 3–7 minutes, and while it is open there is a small chance the police are watching the drop (3–5 % when the
-// thing is fully wiped, more with traces left). Once it is sold it's done — except that 5–7 % of buyers later
-// complain to the police.
+// that can be wiped by hand or by a "master". They can only be sold back through the Shade: the drop happens in
+// about a minute, with a small chance the police are watching it (3–5 % when the thing is fully wiped, more with
+// traces left). Then, 3–7 minutes after the deal closes, the buyer may still complain to the police (5–7 %);
+// if they don't, the thing is sold for good.
 import { G, emit } from '../core/state.js';
 import { T, L } from '../core/i18n.js';
 import { RNG } from '../core/rng.js';
@@ -79,13 +79,14 @@ export function bBuyWipe(it, k) {
 const bs = () => { const s = G.s; s.bsales ||= { open: [], after: [], log: [] }; return s.bsales; };
 export const openSales = () => bs().open;
 export const saleLog = () => bs().log;
+export const afterSales = () => bs().after;
 export const offerFor = (it) => nicePrice(itemValue(it, G.s.player.city, 'true', { clean: true }) * (0.88 - 0.25 * traceOfB(it) / 100), countryOf(G.s.player.city).cur);
 export function startSale(itemId) {
   const it = getItem(itemId);
   if (!it?.banned) return { ok: false };
   const r = new RNG(uid('bs'));
   const price = Math.round(offerFor(it) * r.float(0.92, 1.12));
-  const mins = r.int(180, 420); // 3–7 real minutes
+  const mins = r.int(40, 90); // the drop: about a minute
   removeItem(it.id);
   bs().open.push({ id: uid('bo'), item: it, title: itemTitle(it), price, at: G.s.t + mins, start: G.s.t, risk: saleRisk(it), complain: complainRisk(it) });
   stat('bannedListed'); log('dark', `⛔ ${itemTitle(it)}`);
@@ -123,7 +124,8 @@ export function bannedTick() {
         addXP(15); stat('bannedSold'); stat('profit', o.price - (o.item.paid || 0));
         st.log.unshift({ t: s.t, title: o.title, res: 'sold', price: o.price });
         notify('dark', T('Тень: продано', 'Тінь: продано', 'Shade: sold'), `${o.title} · +${fmt(o.price)}`);
-        st.after.push({ title: o.title, price: o.price, p: o.complain, at: s.t + new RNG(uid('ba')).int(60, 720) });
+        // the buyer's window to complain: 3–7 minutes after the deal closed
+        st.after.push({ id: uid('bw'), title: o.title, price: o.price, p: o.complain, from: s.t, at: s.t + new RNG(uid('ba')).int(180, 420) });
       }
       st.log.length = Math.min(st.log.length, 20);
       emit('money'); emit('dark');
@@ -134,7 +136,11 @@ export function bannedTick() {
     if (!due.length) return;
     st.after = st.after.filter((x) => x.at > s.t);
     for (const x of due) {
-      if (Math.random() >= x.p) continue; // the buyer stays quiet — the deal is done for good
+      if (Math.random() >= x.p) { // the buyer stayed quiet — the deal is done for good
+        st.log.unshift({ t: s.t, title: x.title, res: 'clear', price: x.price });
+        notify('dark', T('Тень: всё чисто', 'Тінь: усе чисто', 'Shade: all clear'), T(`${x.title}: покупатель не пожаловался — сделка закрыта окончательно ✅`, `${x.title}: покупець не поскаржився — угоду закрито остаточно ✅`, `${x.title}: the buyer stayed quiet — the deal is closed for good ✅`), { noBadge: true });
+        continue;
+      }
       const fine = nicePrice(Math.max(25, x.price * 0.5), cur);
       policeFine('banned', fine, x.title);
       st.log.unshift({ t: s.t, title: x.title, res: 'complaint', fine });
