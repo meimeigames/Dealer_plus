@@ -1,5 +1,4 @@
 // Other item sources: free giveaways, dumpster finds, pawn shop, wholesale lots, mystery boxes, auctions.
-import { isBannedItem, blockMsg } from './banned.js';
 import { G, emit } from '../core/state.js';
 import { RNG } from '../core/rng.js';
 import { T, L } from '../core/i18n.js';
@@ -12,7 +11,7 @@ import { npcName } from './npc.js';
 import { canStore, addItem, spend, earn, charge, stat, addXP, upLevel, notify, log, freeSpace, getItem, removeItem, addProfit } from './player.js';
 import { DISTRICTS, maxValForLevel } from './market.js';
 import { useEnergy, hasEnergy } from './needs.js';
-import { noteHotSale } from './hot.js';
+import { noteHotSale, dealCheck } from './hot.js';
 
 // ---------------------------------------------------------------- free stuff
 export function freeFeed() {
@@ -391,7 +390,7 @@ function closeLot(lot) {
 export function startOwnAuction(itemId, start, dur = 240) {
   const s = G.s;
   const it = getItem(itemId);
-  if (!it || it.listed || it.shop || isBannedItem(it)) return false;
+  if (!it || it.listed || it.shop) return false;
   it.listed = true; it.auction = { start, end: s.t + dur, bid: 0, bids: 0 };
   s.ownAuctions ||= [];
   s.ownAuctions.push({ itemId, start, end: s.t + dur });
@@ -415,6 +414,8 @@ export function ownAuctionTick() {
       delete it.auction;
       if (bid > 0) {
         const fee = bid * 0.08;
+        const bust = dealCheck(it, bid);
+        if (bust) { removeItem(it.id); notify('auction', T('Аукцион: сделка сорвалась', 'Аукціон: угоду зірвано', 'Auction: the deal fell through'), T(`${itemTitle(it)}: победитель оказался из полиции. Вещь изъята, штраф ${fmt(bust.fine)}.`, `${itemTitle(it)}: переможець виявився з поліції. Річ вилучено, штраф ${fmt(bust.fine)}.`, `${itemTitle(it)}: the winner was the police. Seized, fine ${fmt(bust.fine)}.`)); aucLog({ kind: 'nobid', title: itemTitle(it), price: bid }); continue; }
         noteHotSale(it, bid);
         removeItem(it.id);
         earn(bid - fee, 'sale', itemTitle(it));

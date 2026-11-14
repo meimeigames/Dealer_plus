@@ -99,7 +99,7 @@ const G2 = '#2ef2a0';
 export const traceBar = (it) => { const t = traceOf(it); return `<div class="hot-bar"><i style="width:${t}%;background:${t > 60 ? '#ff5468' : t > 30 ? '#ffb020' : G2}"></i></div>`; };
 function darkMain() {
   const s = G.s;
-  const tabs = `<div class="seg" style="background:#06120c">${[['goods', T('Товар', 'Товар', 'Goods')], ['orders', T('Заказы', 'Замовлення', 'Orders')], ['sell', T('Сбыт', 'Збут', 'Sell')], ['fence', T('Скупщик', 'Скупник', 'Fence')], ['services', T('Услуги', 'Послуги', 'Services')]].map(([k, n]) => `<button class="${D.tab === k ? 'on' : ''}" data-a="dtab" data-v="${k}">${n}</button>`).join('')}</div>`;
+  const tabs = `<div class="seg" style="background:#06120c">${[['goods', T('Товар', 'Товар', 'Goods')], ['orders', T('Заказы', 'Замовлення', 'Orders')], ['fence', T('Скупщик', 'Скупник', 'Fence')], ['services', T('Услуги', 'Послуги', 'Services')]].map(([k, n]) => `<button class="${D.tab === k ? 'on' : ''}" data-a="dtab" data-v="${k}">${n}</button>`).join('')}</div>`;
   const hotMine = s.inv.filter((it) => it.hot && it.hot.known && !it.listed);
   const warn = (tx) => `<div class="termbox mb"><span class="hl">&gt; tor://shadow</span><br>${tx}</div>`;
   if (D.tab === 'goods') {

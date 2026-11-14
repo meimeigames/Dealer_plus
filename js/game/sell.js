@@ -1,5 +1,4 @@
 // Selling: player listings, buyer chats & offers, shipping, payouts, returns and reviews.
-import { isBannedItem, blockMsg } from './banned.js';
 import { G, emit } from '../core/state.js';
 import { RNG } from '../core/rng.js';
 import { T, L } from '../core/i18n.js';
@@ -20,7 +19,7 @@ import { ymOnSale } from './shops2.js';
 import { risk } from './crime.js';
 import { deliveryTime } from './market.js';
 import { collectionBonus } from './quests.js';
-import { noteHotSale } from './hot.js';
+import { noteHotSale, dealCheck } from './hot.js';
 
 export const PLATFORMS = {
   classifieds: { fee: 0, rate: 1, n: (c) => c.apps.classifieds[0], lvl: 1 },
@@ -39,7 +38,6 @@ export function listItem(itemId, platform, price, disclose = true) {
   const s = G.s;
   const it = getItem(itemId);
   if (!it || it.shop) return false;
-  if (isBannedItem(it)) return false;
   if (isBanned()) return false;
   const old = myListing(itemId);
   if (old) { old.price = price; old.platform = platform; old.disclose = disclose; emit('listings'); return true; }
@@ -330,8 +328,17 @@ export function completeSale(c, mode = 'ship', packed = 0.5) {
   const fee = price * pf.fee;
   const payout = price - fee;
   const disclose = l ? l.disclose : true;
+  // a thing from the Shade: the police may be on to it right at the deal (meeting / courier hand‑over)
+  const bust = dealCheck(it, price);
+  if (bust) {
+    unlist(it.id); removeItem(it.id);
+    c.st = 'closed';
+    c.msgs.push({ f: 'sys', tx: mode === 'meet' ? T(`🚔 На встречу вместо покупателя пришли оперативники. Вещь изъята, штраф ${fmt(bust.fine)}.`, `🚔 На зустріч замість покупця прийшли оперативники. Річ вилучено, штраф ${fmt(bust.fine)}.`, `🚔 Plain‑clothes police came instead of the buyer. Seized, fine ${fmt(bust.fine)}.`) : T(`🚔 Посылку задержали при отправке — вещь числится в базе. Изъята, штраф ${fmt(bust.fine)}.`, `🚔 Посилку затримали під час відправлення — річ числиться в базі. Вилучено, штраф ${fmt(bust.fine)}.`, `🚔 The parcel was stopped at drop‑off — the item is in the database. Seized, fine ${fmt(bust.fine)}.`), t: s.t });
+    for (const o of s.chats) if (o !== c && o.kind === 'sell' && o.itemId === it.id && o.st === 'open') o.st = 'closed';
+    emit('chats'); emit('inv');
+    return 'busted';
+  }
   unlist(it.id);
-  noteHotSale(it, price);
   removeItem(it.id);
   addFlood(s.player.city, it.m);
   if (it.split && G.s.t - (it.at || 0) < 2880) ymOnSale(it);
@@ -368,6 +375,8 @@ export function completeSale(c, mode = 'ship', packed = 0.5) {
 export function finishSale(sale, instant = false) {
   const s = G.s;
   earn(sale.payout, 'sale', sale.title);
+  // the deal is closed now: from here the buyer has 3–7 minutes to complain about a Shade item
+  noteHotSale(sale.itemSnap, sale.price);
   const profit = sale.payout - sale.paid;
   addProfit(profit);
   stat('sold'); stat('revenue', sale.payout); stat('profit', profit);
@@ -447,7 +456,7 @@ export function resolveClaim(c, how) {
 // Instant sale to a pawn shop
 export function pawnSell(itemId) {
   const it = getItem(itemId);
-  if (!it || isBannedItem(it)) return 0;
+  if (!it) return 0;
   const v = itemValue(it, G.s.player.city, 'known') * 0.48 * (it.fake && !it.fakeKnown ? 0.15 : 1);
   unlist(itemId);
   noteHotSale(it, v);

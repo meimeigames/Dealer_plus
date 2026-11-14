@@ -16,6 +16,7 @@ import { itemValue, itemTitle } from './items.js';
 import { getItem, removeItem, earn, charge, spend, notify, stat, addXP, log } from './player.js';
 import { arrest, policeFine } from './crime.js';
 import { dv } from './difficulty.js';
+import { saleRisk, saleFloor, complainRisk } from './banned.js';
 
 // trace kinds: weight (how much of the trace it is), how to remove it
 export const MARKS = {
@@ -92,9 +93,13 @@ export function hotTick() {
   for (const x of due) {
     // after a sale: the buyer runs the thing through the databases
     if (x.buyer) {
-      if (Math.random() >= x.p) continue;
+      if (Math.random() >= x.p) { notify('dark', T('Всё чисто', 'Усе чисто', 'All clear'), T(`${x.title}: покупатель не пожаловался — продано окончательно ✅`, `${x.title}: покупець не поскаржився — продано остаточно ✅`, `${x.title}: the buyer stayed quiet — sold for good ✅`), { noBadge: true }); continue; }
       const cur = countryOf(s.player.city).cur;
-      if (x.grey) {
+      if (x.banned) {
+        const fine = nicePrice(Math.max(25, (x.price || x.val) * 0.5), cur);
+        policeFine('banned', fine, x.title);
+        notify('gov', T('Полиция', 'Поліція', 'Police'), T(`Покупатель «${x.title}» пожаловался в полицию. Штраф ${fmt(fine)} и пометка в деле.`, `Покупець «${x.title}» поскаржився в поліцію. Штраф ${fmt(fine)} і позначка в справі.`, `The buyer of “${x.title}” went to the police. Fine ${fmt(fine)} and a mark on your record.`));
+      } else if (x.grey) {
         const fine = nicePrice(Math.max(15, x.price * 0.25), cur);
         policeFine('grey', fine, x.title);
         notify('gov', T('Полиция', 'Поліція', 'Police'), T(`Покупатель проверил ${x.title} по серийнику: серый импорт без растаможки. Он написал заявление — к вам пришла полиция. Штраф ${fmt(fine)} и пометка в деле.`, `Покупець перевірив ${x.title} за серійником: сірий імпорт без розмитнення. Він написав заяву — до вас прийшла поліція. Штраф ${fmt(fine)} і позначка в справі.`, `The buyer checked the ${x.title} by its serial: an uncleared grey import. He filed a report — the police came. Fine ${fmt(fine)} and a mark on your record.`));
@@ -139,16 +144,54 @@ export function noteHotSale(it, price) {
   // forged papers: now and then a buyer's bank or a service centre spots them
   if (it?.fakeDocs && Math.random() < 0.06) arrest('fake', { text: T('Поддельные документы на вещь', 'Підроблені документи на річ', 'Forged papers for an item') });
   if (!it) return;
+  const kind = shadeOf(it);
+  if (!kind) return;
+  // the buyer's window to complain: 3–7 minutes after the deal closed; police stop watching the item
   const s = G.s, r = new RNG(uid('hb'));
-  if (it.hot) {
-    s.hotw = (s.hotw || []).filter((x) => x.id !== it.id);
-    const p = buyerRisk(it);
-    s.hotw.push({ id: it.id, buyer: true, title: itemTitle(it), at: s.t + r.int(90, 720), val: itemValue(it, s.player.city, 'true', { clean: true }), price, p });
-    return;
-  }
-  if (it.shade === 'grey') (s.hotw ||= []).push({ id: it.id, buyer: true, grey: true, title: itemTitle(it), at: s.t + r.int(120, 900), val: 0, price, p: 0.12 * dv().crime });
+  s.hotw = (s.hotw || []).filter((x) => x.id !== it.id);
+  s.hotw.push({ id: it.id, buyer: true, kind, grey: kind === 'grey', banned: kind === 'banned', title: itemTitle(it), at: s.t + r.int(180, 420), val: itemValue(it, s.player.city, 'true', { clean: true }), price, p: complaintRisk(it) });
 }
-
+// ---------------------------------------------------------------- selling Shade goods on Oliks & co.
+// Stolen, grey or forbidden: wipe the traces, sell it like anything else. At the deal itself there is a small
+// chance the police are on to it (3–5 % fully wiped, more with traces left). Sold — then for 3–7 minutes after
+// the deal closes the buyer may still complain to the police: 5–7 % fully wiped (more with traces). If they
+// don't, the thing is sold for good.
+export const shadeOf = (it) => (it?.hot ? 'hot' : it?.banned ? 'banned' : it?.shade === 'grey' ? 'grey' : null);
+const pct = (it, salt, lo, span) => +(lo + (hashId(it.id + salt) % (span * 1000 + 1)) / 1000).toFixed(3);
+export function dealRisk(it) {
+  const kind = shadeOf(it);
+  if (!kind) return 0;
+  if (kind === 'banned') return saleRisk(it);
+  const lo = pct(it, '|deal', 0.03, 0.02);
+  if (kind === 'grey' || !markLeft(it).length) return lo;
+  const x = clamp((traceOf(it) - HOT_FLOOR) / (95 - HOT_FLOOR), 0.05, 1);
+  return clamp(lo + (0.35 - lo) * Math.pow(x, 0.9) * dv().crime, lo, 0.6);
+}
+export const dealFloor = (it) => (it?.banned ? saleFloor(it) : pct(it, '|deal', 0.03, 0.02));
+export function complaintRisk(it) {
+  const kind = shadeOf(it);
+  if (kind === 'hot') return buyerRisk(it);
+  if (kind === 'banned') return complainRisk(it);
+  if (kind === 'grey') return pct(it, '|grey', 0.05, 0.02);
+  return 0;
+}
+// what the player sees: a stolen thing sold to them as a "grey import" shows grey numbers (the truth is worse)
+export function shownRisk(it) {
+  if (it?.hot && !it.hot.known) return { deal: pct(it, '|deal', 0.03, 0.02), floor: pct(it, '|deal', 0.03, 0.02), complain: pct(it, '|grey', 0.05, 0.02), kind: 'grey' };
+  return { deal: dealRisk(it), floor: dealFloor(it), complain: complaintRisk(it), kind: shadeOf(it) };
+}
+// at the moment of the deal (meeting or hand‑over to the courier); returns null or what happened
+export function dealCheck(it, price) {
+  const kind = shadeOf(it);
+  if (!kind || Math.random() >= dealRisk(it)) return null;
+  const s = G.s, cur = countryOf(s.player.city).cur;
+  const val = itemValue(it, s.player.city, 'true', { clean: true });
+  const fine = nicePrice(Math.max(30, val * (kind === 'grey' ? 0.3 : 0.5)), cur);
+  s.hotw = (s.hotw || []).filter((x) => x.id !== it.id);
+  arrest(kind === 'banned' ? 'banned' : kind === 'grey' ? 'grey' : 'stolen', { fine, mins: 180, text: itemTitle(it) });
+  stat('hotCaught');
+  return { caught: true, fine, kind };
+}
 // wiping a trace
 export const markLeft = (it) => (it?.hot ? it.hot.marks.filter((k) => !it.hot.done.includes(k)) : []);
 export function svcPrice(it, k) {

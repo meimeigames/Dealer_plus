@@ -5,6 +5,7 @@ import { esc, clamp } from '../core/util.js';
 import { CATS, CAT_LIST } from '../data/catalog.js';
 import { fmt, nicePrice } from '../core/money.js';
 import { countryOf } from '../data/world.js';
+import { shadeOf, shownRisk } from '../game/hot.js';
 import { icon } from '../ui/icons.js';
 import { go, rerender, toast, askPrice, choose, confirmBox, openApp, ago, UI, replace, sheet, resolveSheet } from '../ui/shell.js';
 import { img, tile, tags, specs, defectList, empty, avatar, stars, gallery } from '../ui/comp.js';
@@ -111,6 +112,7 @@ function chatView(p) {
     if (c.persuaded < 2) opts += O('persuade', `🎯 ${T('Убедить (торг)', 'Переконати (торг)', 'Persuade (haggle)')}`);
     opts += O('decline', T('Нет, спасибо', 'Ні, дякую', 'No, thanks'));
   } else if (c.kind === 'sell' && c.st === 'agreed') {
+    if (it && shadeOf(it)) { const R = shownRisk(it); opts += `<div class="link-hint">🕶 ${T(`Вещь из Тени. На сделке может прийти полиция: ~${Math.round(R.deal * 100)}%${R.deal > R.floor + 0.001 ? ` (уберите следы — будет ${Math.round(R.floor * 100)}%)` : ''}. После закрытия сделки ещё 3–7 минут покупатель может пожаловаться — ~${Math.round(R.complain * 100)}%.`, `Річ із Тіні. На угоду може прийти поліція: ~${Math.round(R.deal * 100)}%${R.deal > R.floor + 0.001 ? ` (приберіть сліди — буде ${Math.round(R.floor * 100)}%)` : ''}. Після закриття угоди ще 3–7 хвилин покупець може поскаржитися — ~${Math.round(R.complain * 100)}%.`, `A Shade item. Police may show up at the deal: ~${Math.round(R.deal * 100)}%${R.deal > R.floor + 0.001 ? ` (wipe the traces — ${Math.round(R.floor * 100)}%)` : ''}. For 3–7 minutes after the deal closes the buyer may complain — ~${Math.round(R.complain * 100)}%.`)}</div>`; }
     opts += O('ship', `📦 ${T('Упаковать и отправить', 'Запакувати й відправити', 'Pack & ship')}`, 'solid');
     if (it && (it.loc || G.s.player.city) === G.s.player.city) opts += O('meet', `🤝 ${T('Встретиться лично (деньги сразу)', 'Зустрітися особисто (гроші одразу)', 'Meet in person (cash now)')}`);
   } else if (c.st === 'link') {
@@ -271,7 +273,7 @@ export default {
     decline: (id) => { chatDecline(chat(id)); rerender(); },
     counter: async (id) => { const c = chat(id); const p = await askPrice({ title: T('Ваша цена', 'Ваша ціна', 'Your price'), value: nicePrice((c.offer + c.ask) / 2), min: 1, max: c.ask * 1.5 }); if (p) { chatCounter(c, p); sfx('tap'); rerender(); } },
     persuade: async (id) => { const c = chat(id); const r = await playMini('timing', { title: T('Торг: убеждение', 'Торг: переконання', 'Haggle: persuade'), rounds: 2, label: T('Попадите в зелёную зону — аргумент сработает', 'Влучте в зелену зону — аргумент спрацює', 'Hit the green zone to land your argument') }); if (!r.quit) chatPersuade(c, r.score); rerender(); },
-    ship: async (id) => { const c = chat(id); const r = await playMini('pack', { title: T('Упаковка', 'Пакування', 'Packing'), pass: 0.5 }); completeSale(c, 'ship', r.quit ? 0.3 : r.score); sfx('ok'); toast(T('Отправлено! Деньги придут после доставки', 'Відправлено! Гроші прийдуть після доставки', 'Shipped! Paid on delivery'), 'g'); rerender(); },
+    ship: async (id) => { const c = chat(id); const r = await playMini('pack', { title: T('Упаковка', 'Пакування', 'Packing'), pass: 0.5 }); if (completeSale(c, 'ship', r.quit ? 0.3 : r.score) === 'busted') { sfx('lose'); toast(T('🚔 Посылку задержала полиция', '🚔 Посилку затримала поліція', '🚔 The police stopped the parcel'), 'r'); rerender(); return; } sfx('ok'); toast(T('Отправлено! Деньги придут после доставки', 'Відправлено! Гроші прийдуть після доставки', 'Shipped! Paid on delivery'), 'g'); rerender(); },
     meet: async (id) => {
       const c = chat(id); const it = getItem(c?.itemId); if (!c || !it) return;
       // the viewing: show off the item's strong points to push the price up
@@ -289,7 +291,8 @@ export default {
         if (!res.ok) { sfx('lose'); toast(T('Покупатель ушёл — поймал на неправде', 'Покупець пішов — спіймав на неправді', 'The buyer walked — caught you lying'), 'r'); rerender(); return; }
         toast(res.caught ? T(`Поймали на приукрашивании: ${fmt(res.after)}`, `Спіймали на прикрашанні: ${fmt(res.after)}`, `Caught overselling: ${fmt(res.after)}`) : res.after > res.before ? T(`Цена выросла: ${fmt(res.before)} → ${fmt(res.after)}`, `Ціна зросла: ${fmt(res.before)} → ${fmt(res.after)}`, `Price up: ${fmt(res.before)} → ${fmt(res.after)}`) : T(`Итог: ${fmt(res.after)}`, `Підсумок: ${fmt(res.after)}`, `Final: ${fmt(res.after)}`), res.after >= res.before ? 'g' : 'r');
       }
-      completeSale(c, 'meet'); sfx('cash'); rerender();
+      if (completeSale(c, 'meet') === 'busted') { sfx('lose'); toast(T('🚔 На встречу пришли оперативники', '🚔 На зустріч прийшли оперативники', '🚔 The police came to the meeting'), 'r'); rerender(); return; }
+      sfx('cash'); rerender();
     },
     scamclick: (id) => { const loss = scamClick(chat(id)); toast(`−${fmt(loss)}`, 'r'); sfx('lose'); rerender(); },
     scamreport: (id) => { scamReport(chat(id)); sfx('win'); rerender(); },
