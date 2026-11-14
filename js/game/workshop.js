@@ -11,12 +11,15 @@ import { TOOLS, CONS, PART_NAMES, MODEL_PART_CATS, QUALITY, partPrice, partKey, 
 import { earn, removeItem } from './player.js';
 
 const base = (it) => modelValue(modelOf(it));
+// the quick fix plays the most characteristic step of the full recipe, not a generic "drag the part"
+const GENERIC = new Set(['align', 'screen', 'scrub', 'color', 'screws', 'timing', 'wires', 'solder', 'dent']);
+export const themedGame = (code) => [...(recipeFor(code)?.steps || [])].reverse().find((x) => !GENERIC.has(x));
 export function repairQuote(it, code) {
   const d = DEFECTS[code];
   if (!d?.fix) return null;
   const k = 1 - upLevel('hands') * 0.12;
   const parts = Math.max(2, base(it) * d.fix[1] * k);
-  return { game: { dent: 'dentfix', screen: 'align' }[d.fix[0]] || d.fix[0], parts, master: parts * 1.7 + 5, time: Math.round(d.fix[2] * k) };
+  return { game: themedGame(code) || { dent: 'dentfix', screen: 'ph_heat' }[d.fix[0]] || d.fix[0], parts, master: parts * 1.7 + 5, time: Math.round(d.fix[2] * k) };
 }
 export const busy = (itemId) => G.s.repairs.some((r) => r.itemId === itemId);
 

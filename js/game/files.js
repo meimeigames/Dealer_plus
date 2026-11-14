@@ -237,8 +237,9 @@ export function connect(it) {
   const d = st(it);
   const found = [];
   for (const x of it.defects || []) if (!x.known && ['s_dead', 's_click', 's_bad', 's_slow'].includes(x.c)) { x.known = true; found.push(x.c); }
-  if (!d.seen) { d.seen = true; stat('devicesOpened'); }
-  emit('inv');
+  const first = !d.seen;
+  if (first) { d.seen = true; stat('devicesOpened'); }
+  if (first || found.length) emit('inv'); // plugging the same drive in again changes nothing — no redraw
   return found;
 }
 

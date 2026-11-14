@@ -9,6 +9,7 @@ import { buildStorage } from './models_storage.js';
 import { buildPC } from './models_pc.js';
 import { buildNew } from './models_new.js';
 import { buildLines } from './models_lines.js';
+import { buildBanned } from './models_banned.js';
 
 export const YEAR = 2026;
 
@@ -364,6 +365,7 @@ buildStorage(addModel);
 buildPC(addModel);
 buildNew(addModel);
 buildLines(addModel);
+buildBanned(addModel);
 
 // Cars follow real used-car prices: −5…10% when it leaves the showroom, then ~4–8% a year (Toyota and the G‑class
 // hold value, Chinese cars and EVs lose it faster); an old runner never drops below a floor (a 30‑year‑old Lada

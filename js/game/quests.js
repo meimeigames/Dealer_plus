@@ -23,17 +23,19 @@ const DQ = [
   { stat: 'boxes', n: ['Открой {n} мистери‑бокс', 'Відкрий {n} містері‑бокс', 'Open {n} mystery box'], base: [1, 1], lvl: 2 },
   { stat: 'profitDay', n: ['Заработай {money} прибыли', 'Заробі {money} прибутку', 'Make {money} profit'], money: true },
 ];
+// rewards were raised ×8 — today's list from an older save gets the new numbers too
+export const QUEST_K = 8;
 export function ensureDaily() {
   const s = G.s;
   const d = day();
-  if (s.quests.day === d) return s.quests.list;
+  if (s.quests.day === d) { for (const q of s.quests.list || []) if (!q.k8) { q.k8 = true; if (!q.done) q.reward = Math.round(q.reward * QUEST_K); } return s.quests.list; }
   const rng = new RNG(`${s.id}:dq:${d}`);
   const pool = DQ.filter((q) => !q.lvl || s.level >= q.lvl);
   const picks = rng.sample(pool, 3);
   const wage = countryOf(s.player.city).wage;
   s.quests.list = picks.map((q, i) => {
     const target = q.money ? Math.round(30 * Math.pow(s.level, 1.5) * wage) : rng.int(q.base[0], q.base[1]) + Math.floor(s.level / 4);
-    return { id: `${d}_${i}`, stat: q.stat, n: q.n, target, money: !!q.money, reward: Math.round((12 + s.level * 9) * wage * (q.money ? 1.5 : 1)), xp: 20 + s.level * 6, done: false };
+    return { id: `${d}_${i}`, stat: q.stat, n: q.n, target, money: !!q.money, reward: Math.round((12 + s.level * 9) * wage * (q.money ? 1.5 : 1) * QUEST_K), xp: 20 + s.level * 6, done: false, k8: true };
   });
   s.quests.day = d;
   return s.quests.list;
@@ -78,7 +80,7 @@ export function storyTick() {
   if (!st) return;
   if (st.ok()) {
     s.quests.story++;
-    const r = st.r * countryOf(s.player.city).wage;
+    const r = st.r * QUEST_K * countryOf(s.player.city).wage;
     earn(r, 'quest', L(st.n));
     addXP(30 + s.quests.story * 15);
     notify('quests', T('Этап пройден!', 'Етап пройдено!', 'Milestone done!'), `${L(st.n)} → +${fmt(r)}`);
@@ -102,6 +104,20 @@ export const ACH = [
   { stat: 'rareFound', tiers: [1, 5, 25, 100], n: ['Охотник за редкостями', 'Мисливець за рідкостями', 'Rarity hunter'] },
 ];
 export function achTier(a) { const v = getStat(a.stat); let t = 0; for (const x of a.tiers) if (v >= x) t++; return t; }
+// every achievement tier pays once: 🥉 $60 · 🥈 $500 · 🥇 $4 000 · 💎 $30 000 (× local wage level)
+export const ACH_PAY = [0, 60, 500, 4000, 30000];
+export const achClaimed = (a) => G.s.quests.claimed?.['ach_' + a.stat] || 0;
+export function achReward(a) { const w = countryOf(G.s.player.city).wage; let sum = 0; for (let t = achClaimed(a) + 1; t <= achTier(a); t++) sum += ACH_PAY[t] * w; return Math.round(sum); }
+export function claimAch(a) {
+  const got = achReward(a);
+  if (!got) return 0;
+  (G.s.quests.claimed ||= {})['ach_' + a.stat] = achTier(a);
+  earn(got, 'quest', T(`Достижение «${L(a.n)}»`, `Досягнення «${L(a.n)}»`, `Achievement “${L(a.n)}”`));
+  addXP(40 * achTier(a));
+  emit('quests');
+  return got;
+}
+export const achBadge = () => ACH.filter((a) => achReward(a) > 0).length;
 
 // ---------------------------------------------------------------- collections
 const rx = (r) => (m) => r.test(m.id);
@@ -142,7 +158,9 @@ export function putInCollection(it, set, slot) {
   if (p.done && !s.quests.claimed['set_' + set.id]) {
     s.quests.claimed['set_' + set.id] = true;
     addXP(300);
-    notify('collections', T('Коллекция собрана!', 'Колекцію зібрано!', 'Collection complete!'), `${L(set.n)}: +${Math.round(set.bonus * 100)}%`);
+    const pay = Math.round(set.slots.length * 400 * countryOf(s.player.city).wage);
+    earn(pay, 'quest', T(`Коллекция «${L(set.n)}»`, `Колекція «${L(set.n)}»`, `Collection “${L(set.n)}”`));
+    notify('collections', T('Коллекция собрана!', 'Колекцію зібрано!', 'Collection complete!'), `${L(set.n)}: +${Math.round(set.bonus * 100)}% · +${fmt(pay)}`);
   }
   emit('inv');
 }

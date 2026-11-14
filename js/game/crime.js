@@ -19,6 +19,7 @@ export const CRIMES = {
   // a police "test purchase" in the Shade: a deal that was too good
   sting: { n: ['Контрольная закупка: покупка краденого', 'Контрольна закупівля: купівля краденого', 'Police sting: buying stolen goods'], jail: [300, 300], fine: [0, 0], sev: 2 },
   grey: { n: ['Сбыт товара без растаможки', 'Збут товару без розмитнення', 'Selling uncleared imports'], jail: [0, 0], fine: [0, 0], sev: 1 },
+  banned: { n: ['Сбыт запрещённых товаров', 'Збут заборонених товарів', 'Selling forbidden goods'], jail: [120, 240], fine: [60, 250], sev: 2 },
   smuggling: { n: ['Контрабанда', 'Контрабанда', 'Smuggling'], jail: [360, 600], fine: [150, 500], sev: 3 },
   leak: { n: ['Торговля персональными данными', 'Торгівля персональними даними', 'Trading personal data'], jail: [480, 720], fine: [200, 600], sev: 3 },
 };

@@ -32,6 +32,7 @@ import { dailyNews, seedNews } from './news.js';
 import { addItem, notify, stat, log, snapshotWorth } from './player.js';
 import { itemTitle } from './items.js';
 import { onlineTick } from './online.js';
+import { bannedTick } from './banned.js';
 
 let timer = null;
 let paused = false;
@@ -129,6 +130,7 @@ export function tick(fast = false) {
   pcTick();
   accTick();
   hotTick();
+  bannedTick();
   pcvTick();
   parkTick();
   taxRemindTick();

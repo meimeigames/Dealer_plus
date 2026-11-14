@@ -14,6 +14,7 @@ import { readInvite, sendPendingFriend, errText, startOnline } from './game/onli
 import { risk, jailed, payBail, crimeName } from './game/crime.js';
 import { ensureHousing } from './game/housing.js';
 import { initHome } from './ui/home.js';
+import { initKeyboard } from './ui/keyboard.js';
 import { initGalleries } from './ui/comp.js';
 import { initWorld, startSim, isPaused, advance, catchUp, CATCHUP_MAX } from './game/sim.js';
 import { resolveCustoms } from './game/travel.js';
@@ -40,7 +41,7 @@ const WATCH = {
   market: ['market', 'chats', 'listings', 'support', 'inv', 'online'], inventory: ['inv', 'listings', 'deliveries', 'chats'], delivery: ['deliveries'],
   auto: ['market', 'inv'], ymarket: ['ym', 'deliveries'], supplier: ['sup', 'inv', 'travel'], msgs: ['badges', 'log'], tg: ['tg', 'inv'], hw: ['deliveries'], build: ['pc', 'inv'], computer: ['inv', 'pc'], bank: ['bank', 'online'], stocks: ['stocks'], jobs: ['jobs', 'needs'], free: ['market', 'needs'], business: ['biz', 'inv'], realty: ['house'], travel: ['travel'],
   gov: ['tax'], quests: ['quests'], numbers: ['numbers'], rating: ['online'], news: ['news'], profile: ['needs', 'house', 'quests'], repair: ['inv', 'parts'],
-  appstore: ['apps'], vpn: ['apps'], dark: ['apps', 'inv'],
+  appstore: ['apps'], vpn: ['apps'], dark: ['apps', 'inv', 'dark', 'money'],
   shop: ['needs', 'inv'], auction: ['market', 'inv'], legit: ['inv'], lab: ['inv'], pawn: ['inv'], map: ['travel'], stats: [], settings: ['online'], upgrades: [], casino: [],
 };
 function safeRerender(ev) {
@@ -93,6 +94,7 @@ function startGame() {
   PHONE.nameOf = (id) => (UI.apps[id] ? appName(UI.apps[id]) : id);
   initShell();
   initHome();
+  initKeyboard();
   initGalleries();
   wire();
   startOnline();

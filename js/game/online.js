@@ -107,6 +107,8 @@ export async function register(nick) {
   save();
   await link().catch(() => {});
   await submit(true).catch(() => {});
+  await pushProfile().catch(() => {});
+  sync().catch(() => {});
   // opened the game through a friend's invite link: send them a friend request right away
   await sendPendingFriend();
   emit('online');
@@ -123,33 +125,73 @@ export async function sendPendingFriend() {
   emit('online');
   return true;
 }
-let lastSubmitTry = 0;
+// Live board: the game sends its numbers every ~15 s while something changed (at least every 2 min), the server
+// accepts one submit per 8 s. Right after a submit the board is refreshed if the Leaderboard is open.
+let lastSubmitTry = 0, lastSig = '';
+const pubStats = (s) => ({ sold: s.stats.sold || 0, profit: Math.round(s.stats.profit || 0), shops: s.biz.shops.length, rep: s.rep.n ? +(s.rep.sum / s.rep.n).toFixed(2) : 0, reviews: s.rep.n || 0,
+  best: Math.round(s.stats.bestFlip || 0), bought: s.stats.bought || 0, repairs: s.stats.repairs || 0, quests: s.stats.quests || 0, abroad: s.stats.abroad || 0, cars: (s.inv || []).filter((x) => x.cat === 'cars').length });
 export async function submit(force = false) {
   const s = G.s;
   if (!onlineEnabled() || !s.online.id) return null;
   const now = Date.now();
-  if (!force && now - lastSubmitTry < 90000) return null;
-  lastSubmitTry = now;
+  const worth = Math.max(0, Math.round(netWorth()));
+  const sig = `${Math.round(worth / 5)}|${s.level}|${s.stats.sold || 0}|${s.biz.shops.length}`;
+  if (!force && (now - lastSubmitTry < 15000 || (sig === lastSig && now - lastSubmitTry < 120000))) return null;
+  lastSubmitTry = now; lastSig = sig;
   const res = await rpc('gr_submit2', {
-    p_id: s.online.id, p_secret: s.online.secret, p_seq: s.online.seq || 0, p_worth: Math.max(0, Math.round(netWorth())), p_level: s.level,
-    p_playtime: s.playSec, p_region: countryOf(s.player.city).id,
-    p_stats: { sold: s.stats.sold || 0, profit: Math.round(s.stats.profit || 0), shops: s.biz.shops.length, rep: s.rep.n ? +(s.rep.sum / s.rep.n).toFixed(2) : 0 },
+    p_id: s.online.id, p_secret: s.online.secret, p_seq: s.online.seq || 0, p_worth: worth, p_level: s.level,
+    p_playtime: s.playSec, p_region: countryOf(s.player.city).id, p_stats: pubStats(s),
   });
   const r = Array.isArray(res) ? res[0] : res;
   if (r?.reason === 'resync') { sync().catch(() => {}); return r; }
   s.online.last = now; s.online.accepted = r?.accepted;
+  if (LIVE.on) sync().catch(() => {});
   emit('online');
   return r;
 }
 export function onlineTick() {
   if (!onlineEnabled() || !G.s?.online?.id) return;
-  if (G.s.t % 120 === 0) submit().catch(() => {});
+  if (G.s.t % 5 === 0 && document.visibilityState === 'visible') submit().catch(() => {});
+  if (G.s.online.profDirty && Date.now() - (PROF.at || 0) > 1500) pushProfile().catch(() => {});
+}
+// ---------------------------------------------------------------- public profiles
+export const PROF = { cache: new Map(), at: 0 };
+export async function pushProfile() {
+  const s = G.s;
+  if (!onlineEnabled() || !s.online?.id) return null;
+  PROF.at = Date.now();
+  const { publicProfile } = await import('./profile.js');
+  await rpc('gr_set_profile', { p_id: s.online.id, p_secret: s.online.secret, p_profile: publicProfile() });
+  s.online.profDirty = false;
+  if (LIVE.on) sync().catch(() => {});
+  return true;
+}
+// someone's profile by nickname; cached for 20 s, refreshed in the background
+export function playerProfile(nick, force = false) {
+  const c = PROF.cache.get(nick);
+  if (!onlineEnabled()) return Promise.resolve(null);
+  if (c && !force && Date.now() - c.at < 20000) return Promise.resolve(c.data);
+  if (c?.busy) return c.busy;
+  const busy = rpc('gr_profile', { p_nick: nick, p_id: G.s.online?.id || null }).then((d) => { PROF.cache.set(nick, { data: d, at: Date.now() }); emit('online'); return d; })
+    .catch((e) => { PROF.cache.set(nick, { ...(c || {}), at: Date.now(), err: errText(e) }); emit('online'); return null; });
+  PROF.cache.set(nick, { ...(c || {}), busy });
+  return busy;
+}
+export const cachedProfile = (nick) => PROF.cache.get(nick);
+export const friendRequestNick = (nick) => rpc('gr_friend_request_nick', { p_id: G.s.online.id, p_secret: G.s.online.secret, p_nick: nick });
+// while the Leaderboard is open it refreshes itself every 7 s
+export const LIVE = { on: false, t: null };
+export function liveBoard(on) {
+  LIVE.on = on;
+  clearInterval(LIVE.t); LIVE.t = null;
+  if (!on || !onlineEnabled()) return;
+  LIVE.t = setInterval(() => { if (document.visibilityState === 'visible') sync().catch(() => {}); }, 7000);
 }
 export async function leaderboard(scope) {
   const s = G.s;
   if (!onlineEnabled()) return offlineBoard(scope);
   const rows = await rpc('gr_leaderboard', { p_scope: scope, p_id: s.online.id || null, p_region: countryOf(s.player.city).id });
-  return (rows || []).map((r) => ({ nick: r.nick, worth: +r.worth, level: r.level, region: r.region, me: r.is_me }));
+  return (rows || []).map((r) => ({ nick: r.nick, worth: +r.worth, level: r.level, region: r.region, me: r.is_me, p: r.profile || {}, on: r.online }));
 }
 export function offlineBoard() {
   const s = G.s;

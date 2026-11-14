@@ -25,6 +25,7 @@ import { playMini } from '../mini/engine.js';
 import { HV, HVA, hwName } from './pc_apps.js';
 import { openDesktopOn } from './pc_desktop.js';
 import { isComputer, specOf } from '../game/pc.js';
+import { BMARKS, bMarksLeft, traceOfB, saleRisk, saleFloor, complainRisk, offerFor, bSvcPrice, bWipe, bBuyWipe, isBannedItem, blockMsg } from '../game/banned.js';
 import { MARKS, traceOf, catchChance, riskOf, minRisk, buyerRisk, buyerFloor, markLeft, svcPrice, wipeMark, buyWipe, fenceOffer } from '../game/hot.js';
 import { vpnActive } from '../game/phone.js';
 import { spend } from '../game/player.js';
@@ -71,12 +72,12 @@ function itemView(p) {
     <div style="font-size:19px;font-weight:700">${esc(itemTitle(it))}</div><div class="small m">${esc(itemSub(it))}</div>${tags(it)}
     <div class="stats mt"><div class="stat"><small>${T('Оценка рынка', 'Оцінка ринку', 'Market value')}</small><b>${fmt(v)}</b></div><div class="stat"><small>${T('Куплено за', 'Куплено за', 'Paid')}</small><b>${fmt(it.paid || 0)}</b></div></div>
     ${l ? `<div class="card hl mt"><b>${T('В продаже', 'У продажу', 'Listed')}: ${fmt(l.price)}</b><div class="small m">👁 ${l.views} · 💬 ${l.offers} · ${l.disclose ? T('дефекты указаны', 'дефекти вказано', 'issues disclosed') : T('дефекты скрыты', 'дефекти приховано', 'issues hidden')}</div><div class="btns">${btn('reprice', T('Изменить цену', 'Змінити ціну', 'Change price'))}${btn('unlist', T('Снять', 'Зняти', 'Unlist'))}</div></div>` : ''}
-    <div class="btns">${!l && !it.auction ? btn('sell', `${icon('tag')} ${T('Продать', 'Продати', 'Sell')}`, '') : ''}${btn('repair', `${icon('wrench')} ${T('Мастерская', 'Майстерня', 'Workshop')}`)}</div>
+    <div class="btns">${!l && !it.auction && !it.banned ? btn('sell', `${icon('tag')} ${T('Продать', 'Продати', 'Sell')}`, '') : ''}${btn('repair', `${icon('wrench')} ${T('Мастерская', 'Майстерня', 'Workshop')}`)}</div>
     <div class="btns">${btn('inspect', `🔍 ${T('Осмотреть', 'Оглянути', 'Inspect')}`)}${btn('legit', `🔎 ${T('Легит‑чек', 'Легіт‑чек', 'Legit check')}`, 'dark', s.level < 2)}</div>
     ${hasStorage(it) ? `<div class="btns">${btn('files', `📂 ${T('Содержимое', 'Вміст', 'Contents')}${it.data?.wiped ? ' · ' + T('чисто', 'чисто', 'clean') : ''}`)}</div>` : ''}
     ${hasStorage(it) || isComputer(it) || specOf(it) ? `<div class="btns">${btn('pcplug', `🖥 ${isComputer(it) ? T('Открыть на своём ПК: файлы, тест, ремонт', 'Відкрити на своєму ПК: файли, тест, ремонт', 'Open on your PC: files, test, repair') : T('Подключить к ПК', 'Підключити до ПК', 'Plug into the PC')}`)}</div>` : ''}
     ${it.cat === 'phones' ? `<div class="btns">${btn('lab', `${icon('lockphone')} Phone Lab${it.lock ? ' 🔒' : ''}`, 'dark', s.level < 2)}</div>` : ''}
-    ${hotBlock(it)}
+    ${hotBlock(it)}${banBlock(it)}
     ${it.cat === 'phones' ? accBlock(it) : ''}
     ${isVehicle(it) ? `<div class="btns">${btn('drive', s.car === it.id ? `🔑 ${T('Основной транспорт', 'Основний транспорт', 'Main vehicle')}` : `🔑 ${T('Ездить на нём', 'Їздити на ньому', 'Use as my ride')}`, s.car === it.id ? 'green' : 'dark')}</div>` : ''}
     ${slots.length ? `<div class="btns">${btn('coll', `🏆 ${T('В коллекцию', 'До колекції', 'Add to collection')}: ${esc(L(slots[0].set.n))}`, 'yel')}</div>` : ''}
@@ -90,6 +91,17 @@ function itemView(p) {
 // stolen goods: traces, how to wipe them, the risk left
 const CHECKABLE = ['phones', 'electronics', 'consoles', 'watches', 'jewelry', 'bikes', 'cars', 'bags'];
 const checkPrice = () => nicePrice(3, countryOf(G.s.player.city).cur);
+// forbidden goods: traces to wipe and the way out (only through the Shade)
+function banBlock(it) {
+  if (!it.banned) return '';
+  const left = bMarksLeft(it), t = traceOfB(it), vpn = vpnActive();
+  const btnFor = (k) => { const m = BMARKS[k]; if (m.fix === 'svc') return `<button class="btn xs ${vpn ? '' : 'dark'}" data-a="bansvc" data-v="${it.id}" data-k="${k}">${esc(L(m.how))} · ${fmt(bSvcPrice(it, k))}</button>`; return `<button class="btn xs" data-a="bandiy" data-v="${it.id}" data-k="${k}">✋ ${esc(L(m.how))}</button>`; };
+  return `<div class="card hot-card"><div class="row between"><b>⛔ ${T('Запрещённое — следы', 'Заборонене — сліди', 'Forbidden — traces')}</b><b class="${t > 40 ? 'r' : t > 15 ? 'o' : 'g'}">${t}%</b></div><div class="hot-bar"><i style="width:${t}%;background:${t > 60 ? '#ff5468' : t > 30 ? '#ffb020' : '#2ef2a0'}"></i></div>
+    <div class="small m">${T(`Продать можно только через Тень (вкладка «Сбыт»): сделка 3–7 минут. Риск, что на встречу придёт полиция: сейчас ~${Math.round(saleRisk(it) * 100)}%, после полной чистки ${Math.round(saleFloor(it) * 100)}%. После продажи ${Math.round(complainRisk(it) * 100)}% — что покупатель пожалуется.`, `Продати можна лише через Тінь (вкладка «Збут»): угода 3–7 хвилин. Ризик, що на зустріч прийде поліція: зараз ~${Math.round(saleRisk(it) * 100)}%, після повного чищення ${Math.round(saleFloor(it) * 100)}%. Після продажу ${Math.round(complainRisk(it) * 100)}% — що покупець поскаржиться.`, `Sellable only through the Shade (“Sell” tab): a 3–7 minute deal. Chance the police come to the drop: ~${Math.round(saleRisk(it) * 100)}% now, ${Math.round(saleFloor(it) * 100)}% fully wiped. After the sale, ${Math.round(complainRisk(it) * 100)}% chance the buyer complains.`)}</div>
+    ${it.banned.marks.map((k) => `<div class="hot-row ${it.banned.done.includes(k) ? 'done' : ''}"><span>${BMARKS[k].ic} ${esc(L(BMARKS[k].n))}</span>${it.banned.done.includes(k) ? `<small>✔ ${T('убрано', 'прибрано', 'wiped')}</small>` : btnFor(k)}</div>`).join('')}
+    ${left.some((k) => BMARKS[k].fix === 'svc') && !vpn ? `<div class="small o mt">🔒 ${T('Услуги «мастеров» — только через VPN (Тень).', 'Послуги «майстрів» — лише через VPN (Тінь).', 'Shadow services need a VPN.')}</div>` : ''}
+    <div class="btns"><button class="btn dark sm" data-a="open" data-v="dark">🕶 ${T('Сбыт в Тени', 'Збут у Тіні', 'Sell in the Shade')} · ~${fmt(offerFor(it))}</button></div></div>`;
+}
 function hotBlock(it) {
   if (!it.hot?.known) return CHECKABLE.includes(it.cat) && !it.checked ? `<div class="btns"><button class="btn dark" data-a="hotcheck" data-v="${it.id}">🔎 ${T('Пробить по базе розыска', 'Пробити за базою розшуку', 'Run it through the stolen database')} · ${fmt(checkPrice())}</button></div>` : '';
   const left = markLeft(it), t = traceOf(it);
@@ -145,7 +157,7 @@ export default {
     cat: (v) => { F.cat = v; rerender(); },
     sort: (v) => { F.sort = v; rerender(); },
     gal: (v) => { gal.i = (gal.i + +v + gal.n) % gal.n; rerender(); },
-    sell: async (id) => { if (await sellFlow(id)) rerender(); },
+    sell: async (id) => { if (isBannedItem(getItem(id))) return toast(blockMsg(), 'r'); if (await sellFlow(id)) rerender(); },
     reprice: async (id) => { const l = myListing(id); const p = await askPrice({ title: T('Новая цена', 'Нова ціна', 'New price'), value: l.price, min: 1, max: l.price * 3 }); if (p) { l.price = p; toast(T('Цена обновлена', 'Ціну оновлено', 'Price updated')); rerender(); } },
     unlist: (id) => { unlist(id); rerender(); },
     repair: (id) => openApp('repair', 'item', { id }),
@@ -184,12 +196,30 @@ export default {
       toast(r.res === 'clean' ? T('Готово — след убран', 'Готово — слід прибрано', 'Done — trace wiped') : r.res === 'rough' ? T('Сделано грубо — след стал меньше, но не так, как хотелось', 'Зроблено грубо — слід менший, але не так, як хотілося', 'Rough job — the trace is smaller, but not by much') : r.res === 'botched' ? T('Халтура — след стал только заметнее', 'Халтура — слід став тільки помітнішим', 'Botched — the trace is now more obvious') : T('«Мастер» пропал с деньгами', '«Майстер» зник із грошима', 'The “master” vanished with the money'), r.res === 'clean' ? 'g' : 'r');
       rerender();
     },
+    bansvc: async (id, el) => {
+      const k = el?.dataset?.k, it = getItem(id); if (!it || !k) return;
+      if (!vpnActive()) return toast(T('Нужен VPN — «мастера» сидят в Тени', 'Потрібен VPN — «майстри» сидять у Тіні', 'You need a VPN — the masters are in the Shade'), 'r');
+      if (!(await confirmBox(L(BMARKS[k].how), `${esc(itemTitle(it))} · ${fmt(bSvcPrice(it, k))}`, T('Заказать', 'Замовити', 'Order')))) return;
+      const r = bBuyWipe(it, k);
+      if (!r.ok) return toast(r.msg || '—', 'r');
+      sfx('win'); toast(T('Готово — след убран', 'Готово — слід прибрано', 'Done — trace wiped'), 'g'); rerender();
+    },
+    bandiy: async (id, el) => {
+      const k = el?.dataset?.k, it = getItem(id); if (!it || !k) return;
+      const m = BMARKS[k];
+      const r = await playMini(m.game, { title: L(m.how), item: it, pass: 0.7 });
+      if (r.quit) return;
+      const res = bWipe(it, k, r.score);
+      sfx(res.res === 'clean' ? 'win' : 'lose');
+      toast(res.res === 'clean' ? T('След убран', 'Слід прибрано', 'Trace wiped') : res.res === 'rough' ? T('Убрано не до конца', 'Прибрано не до кінця', 'Partly wiped') : T('Испортили — след стал заметнее', 'Зіпсували — слід став помітнішим', 'Botched — the trace is more visible now'), res.res === 'clean' ? 'g' : 'r');
+      rerender();
+    },
     hotdiy: async (id, el) => {
       const k = el?.dataset?.k, it = getItem(id); if (!it || !k) return;
       const m = MARKS[k];
       let q = 1;
       if (m.fix === 'diy') {
-        const r = await playMini(m.game, { title: L(m.how), item: it, label: k === 'serial' ? T('Наклейте новую наклейку с серийником ровно на место старой', 'Наклейте нову наклейку із серійником рівно на місце старої', 'Put the new serial sticker exactly where the old one was') : k === 'engrave' ? T('Сполируйте гравировку целиком', 'Сполíруйте гравіювання повністю', 'Polish the engraving off completely') : T('Срежьте и ототрите всё лишнее', 'Зріжте й відітріть усе зайве', 'Cut off and rub away everything'), pass: 0.7 });
+        const r = await playMini(m.game, { title: L(m.how), item: it, label: k === 'engrave' ? T('Сполируйте гравировку целиком', 'Сполíруйте гравіювання повністю', 'Polish the engraving off completely') : undefined, pass: 0.7 });
         if (r.quit) return;
         q = r.score;
       } else if (!(await confirmBox(L(m.how), esc(itemTitle(it)), T('Сделать', 'Зробити', 'Do it')))) return;

@@ -1,4 +1,5 @@
 // Business: commercial property, shops, interior, staff, pricing and hourly sales simulation.
+import { isBannedItem, blockMsg } from './banned.js';
 import { G, emit } from '../core/state.js';
 import { T, L } from '../core/i18n.js';
 import { uid, clamp, chance, rnd, rint, pickR } from '../core/util.js';
@@ -100,7 +101,7 @@ export function closeShop(id) {
 export const shelf = (shop) => G.s.inv.filter((i) => i.shop === shop.id);
 export function stockItem(shop, itemId, price) {
   const it = getItem(itemId);
-  if (!it || it.listed || shelf(shop).length >= shop.slots) return false;
+  if (!it || it.listed || isBannedItem(it) || shelf(shop).length >= shop.slots) return false;
   if (isVehicle(it) && shop.def !== 'showroom') return false;
   it.shop = shop.id; it.shopPrice = price;
   it.loc = shop.city;

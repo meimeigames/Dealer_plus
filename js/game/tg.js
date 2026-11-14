@@ -1,5 +1,6 @@
 // "Telega" — a messenger with channels: private paid channels with below-market (and risky) goods,
 // a repair channel, a local flea channel, a wholesale channel, plus members' requests ("Orders").
+import { isBannedItem, blockMsg } from './banned.js';
 import { G, emit } from '../core/state.js';
 import { T, L } from '../core/i18n.js';
 import { RNG } from '../core/rng.js';
@@ -121,7 +122,7 @@ export function requests() {
 export const matchesFor = (rq) => G.s.inv.filter((it) => it.m === rq.m && !it.listed && !it.shop);
 export function fulfil(rq, itemId) {
   const it = getItem(itemId), st = tgState();
-  if (!it || st.reqDone[rq.id]) return { ok: false };
+  if (!it || st.reqDone[rq.id] || isBannedItem(it)) return { ok: false, msg: blockMsg() };
   noteHotSale(it, rq.budget);
   removeItem(it.id);
   st.reqDone[rq.id] = true;

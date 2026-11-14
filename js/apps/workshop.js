@@ -39,6 +39,16 @@ const STEP_NAME = {
   bk_true: ['восьмёрка', 'вісімка', 'wheel truing'], bk_brake: ['калипер', 'каліпер', 'caliper'], bk_cells: ['банки батареи', 'банки батареї', 'battery cells'], in_tune: ['настройка', 'налаштування', 'tuning'], in_truss: ['анкер', 'анкер', 'truss rod'], in_glue: ['клей в трещину', 'клей у тріщину', 'crack glue'], dentfix: ['вмятина', 'вмʼятина', 'dent'],
   screws: ['винты', 'гвинти', 'screws'], screen: ['дисплей', 'дисплей', 'screen'], solder: ['пайка', 'паяння', 'soldering'], wires: ['шлейфы', 'шлейфи', 'cables'], scrub: ['чистка и полировка', 'чистка й полірування', 'clean & polish'], align: ['установка детали', 'встановлення деталі', 'fit the part'], color: ['подбор краски', 'підбір фарби', 'paint match'], dent: ['вмятина', 'вмʼятина', 'dent'],
 };
+Object.assign(STEP_NAME, {
+  ph_backglass: ['клей по контуру крышки', 'клей по контуру кришки', 'glue the back cover'], ph_lens: ['осколки и новое стекло', 'уламки й нове скло', 'shards & new glass'], ph_spk: ['замена динамика', 'заміна динаміка', 'speaker swap'],
+  cam_lens: ['фокус объектива', 'фокус обʼєктива', 'lens focus'], cpu_pins: ['выпрямить ножки', 'випрямити ніжки', 'straighten pins'], hdd_glue: ['склеить корпус', 'склеїти корпус', 'glue the casing'],
+  sh_insole: ['вырезать стельку', 'вирізати устілку', 'cut the insole'], wt_crystal: ['запрессовка стекла', 'запресування скла', 'press the crystal'], wt_clean: ['разборка механизма', 'розбирання механізму', 'strip the movement'],
+  wt_bezel: ['установка безеля', 'встановлення безеля', 'fit the bezel'], pf_cap: ['подбор крышки', 'підбір кришки', 'find the cap'], fix_part: ['замена детали', 'заміна деталі', 'swap the part'],
+  cm_press: ['пресс корешка', 'прес корінця', 'spine press'], cm_tear: ['подклейка надрыва', 'підклеювання надриву', 'mend the tear'], toy_find: ['поиск деталей', 'пошук деталей', 'find the pieces'],
+  toy_glue: ['склейка', 'склеювання', 'glue'], ant_resin: ['смола в трещину', 'смола в тріщину', 'resin fill'], ant_mech: ['переборка механизма', 'перебирання механізму', 'overhaul'],
+  art_stitch: ['шов холста', 'шов полотна', 'canvas stitch'], art_frame: ['струбцины крест‑накрест', 'струбцини навхрест', 'clamp crosswise'], car_glass: ['установка стекла', 'встановлення скла', 'set the glass'],
+  fw_flash: ['выбор прошивки', 'вибір прошивки', 'pick the firmware'],
+});
 const stepNames = (steps) => steps.map((k) => L(STEP_NAME[k] || [k, k, k])).join(' → ');
 // ---------------------------------------------------------------- REPAIR
 function repairMain() {

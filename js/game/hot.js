@@ -21,11 +21,11 @@ import { dv } from './difficulty.js';
 export const MARKS = {
   imei: { n: ['IMEI в чёрном списке', 'IMEI у чорному списку', 'IMEI blacklisted'], ic: '📡', w: 40, fix: 'svc', price: 0.16, how: ['Перебить IMEI', 'Перебити IMEI', 'Re‑flash the IMEI'] },
   acct: { n: ['Аккаунт владельца', 'Акаунт власника', 'Owner’s account'], ic: '👤', w: 25, fix: 'svc', price: 0.1, how: ['Отвязать аккаунт', 'Відвʼязати акаунт', 'Unlink the account'] },
-  serial: { n: ['Серийник в базе розыска', 'Серійник у базі розшуку', 'Serial in the police database'], ic: '🏷', w: 30, fix: 'diy', game: 'align', how: ['Переклеить серийник', 'Переклеїти серійник', 'Swap the serial sticker'] },
+  serial: { n: ['Серийник в базе розыска', 'Серійник у базі розшуку', 'Serial in the police database'], ic: '🏷', w: 30, fix: 'diy', game: 'mk_label', how: ['Переклеить серийник', 'Переклеїти серійник', 'Swap the serial sticker'] },
   owner: { n: ['Файлы и фото владельца', 'Файли й фото власника', 'Owner’s files and photos'], ic: '🗂', w: 15, fix: 'wipe', how: ['Стереть всё', 'Стерти все', 'Wipe everything'] },
   engrave: { n: ['Гравировка / номер корпуса', 'Гравіювання / номер корпусу', 'Engraving / case number'], ic: '✒️', w: 45, fix: 'diy', game: 'scrub', valueHit: 0.04, how: ['Сполировать', 'Сполірувати', 'Polish it off'] },
   papers: { n: ['Чек и карточка на чужое имя', 'Чек і картка на чуже імʼя', 'Receipt and card in someone’s name'], ic: '🧾', w: 20, fix: 'drop', how: ['Выбросить бумаги', 'Викинути папери', 'Bin the papers'] },
-  tags: { n: ['Бирки и чип магазина', 'Бірки та чип магазину', 'Store tags and RFID chip'], ic: '🔖', w: 40, fix: 'diy', game: 'scrub', how: ['Срезать бирки', 'Зрізати бірки', 'Cut the tags off'] },
+  tags: { n: ['Бирки и чип магазина', 'Бірки та чип магазину', 'Store tags and RFID chip'], ic: '🔖', w: 40, fix: 'diy', game: 'mk_tags', how: ['Срезать бирки', 'Зрізати бірки', 'Cut the tags off'] },
   vin: { n: ['Номер рамы / VIN в розыске', 'Номер рами / VIN у розшуку', 'Frame number / VIN wanted'], ic: '🔢', w: 50, fix: 'svc', price: 0.12, how: ['Перебить номер', 'Перебити номер', 'Re‑stamp the number'] },
   plates: { n: ['Номера в розыске', 'Номери в розшуку', 'Wanted plates'], ic: '🚘', w: 30, fix: 'svc', price: 0.02, min: 60, how: ['Новые номера', 'Нові номери', 'New plates'] },
   paint: { n: ['Приметный цвет и наклейки', 'Помітний колір і наклейки', 'Distinctive paint and stickers'], ic: '🎨', w: 18, fix: 'svc', price: 0.05, how: ['Перекрасить', 'Перефарбувати', 'Respray it'] },
@@ -219,7 +219,7 @@ export function darkOrders() {
 export const orderPay = (o, it) => nicePrice(itemValue(it, G.s.player.city, 'true') * o.k, countryOf(G.s.player.city).cur);
 export function fillOrder(orderId, itemId) {
   const s = G.s, o = darkOrders().find((x) => x.id === orderId), it = getItem(itemId);
-  if (!o || !it || it.cat !== o.cat || it.listed) return { ok: false };
+  if (!o || !it || it.cat !== o.cat || it.listed || it.banned) return { ok: false };
   const pay = orderPay(o, it);
   removeItem(it.id);
   s.hotw = (s.hotw || []).filter((x) => x.id !== it.id);

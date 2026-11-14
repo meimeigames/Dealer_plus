@@ -8,6 +8,8 @@ import { setPaused } from '../game/sim.js';
 
 const GAMES = {};
 export function registerGames(map) { Object.assign(GAMES, map); }
+export const hasGame = (n) => !!GAMES[n];
+export const gameNames = () => Object.keys(GAMES);
 
 export function playMini(name, opts = {}) {
   return new Promise((resolve) => {

@@ -13,6 +13,7 @@ import { spend, earn, charge, notify, addItem, getItem, removeItem, canStore, ad
 import { strike } from './support.js';
 import { arrest } from './crime.js';
 import { makeHot, watchHot } from './hot.js';
+import { bannedListing } from './banned.js';
 
 // ---------------------------------------------------------------- installed apps
 export function ensurePhone(allApps) {
@@ -96,6 +97,7 @@ export const DARK_KINDS = {
   hot: { ic: '🔥', n: ['Краденое', 'Крадене', 'Stolen'] },
   grey: { ic: '📦', n: ['Серый импорт', 'Сірий імпорт', 'Grey import'] },
   replica: { ic: '🎭', n: ['Реплика 1:1', 'Репліка 1:1', '1:1 replica'] },
+  banned: { ic: '⛔', n: ['Запрещённое', 'Заборонене', 'Forbidden'] },
 };
 function darkFeed() {
   const s = G.s;
@@ -120,6 +122,12 @@ function darkFeed() {
     const cheap = clamp((0.5 - k) / 0.3, 0, 1), dear = clamp(Math.log10(Math.max(1, clean) / 150) / 1.6, 0, 1);
     const pSting = kind === 'replica' ? 0 : 0.02 + 0.2 * cheap * (0.4 + 0.6 * dear) + (it.cond >= 90 ? 0.05 : 0);
     s.dark.feed.push({ id: uid('dk'), item: it, kind: kind === 'hidden' ? 'grey' : kind, price: nicePrice(Math.max(5, clean * k), cur), seller: rng.pick(SELLERS), sting: rng.chance(pSting), clean });
+  }
+  // forbidden goods: 2–4 lots per batch (they sell only back through the Shade)
+  for (let i = 0, n = rng.int(2, 4); i < n; i++) {
+    const b = bannedListing(rng, city);
+    const pSting = 0.03 + (b.price / b.clean < 0.5 ? 0.06 : 0);
+    s.dark.feed.splice(rng.int(0, s.dark.feed.length), 0, { id: uid('dk'), item: b.it, kind: 'banned', price: b.price, seller: rng.pick(SELLERS), sting: rng.chance(pSting), clean: b.clean });
   }
   // now and then: a flagship in great shape for a fraction of its price. Usually bait, sometimes a real jackpot
   if (rng.chance(0.4)) {
@@ -152,7 +160,7 @@ export function darkBuy(id) {
     stat('stings'); log('dark', `🚔 ${itemTitle(l.item)}`);
     return { ok: true, sting: true, fine, lost: l.price };
   }
-  l.item.shade = l.item.hot ? 'hot' : l.kind;
+  l.item.shade = l.item.hot ? 'hot' : l.item.banned ? 'banned' : l.kind;
   addItem(l.item, l.price, 'dark');
   // stolen goods get traced sooner or later — unless you wipe the traces (and even then, maybe)
   if (l.item.hot) watchHot(l.item);

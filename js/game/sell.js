@@ -1,4 +1,5 @@
 // Selling: player listings, buyer chats & offers, shipping, payouts, returns and reviews.
+import { isBannedItem, blockMsg } from './banned.js';
 import { G, emit } from '../core/state.js';
 import { RNG } from '../core/rng.js';
 import { T, L } from '../core/i18n.js';
@@ -38,6 +39,7 @@ export function listItem(itemId, platform, price, disclose = true) {
   const s = G.s;
   const it = getItem(itemId);
   if (!it || it.shop) return false;
+  if (isBannedItem(it)) return false;
   if (isBanned()) return false;
   const old = myListing(itemId);
   if (old) { old.price = price; old.platform = platform; old.disclose = disclose; emit('listings'); return true; }
@@ -445,7 +447,7 @@ export function resolveClaim(c, how) {
 // Instant sale to a pawn shop
 export function pawnSell(itemId) {
   const it = getItem(itemId);
-  if (!it) return 0;
+  if (!it || isBannedItem(it)) return 0;
   const v = itemValue(it, G.s.player.city, 'known') * 0.48 * (it.fake && !it.fakeKnown ? 0.15 : 1);
   unlist(itemId);
   noteHotSale(it, v);

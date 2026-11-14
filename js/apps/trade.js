@@ -1,4 +1,5 @@
 // Auctions app and Marketplace app (mystery boxes, wholesale lots, new goods & import).
+import { morphHTML } from '../ui/morph.js';
 import { G, emit } from '../core/state.js';
 import { T, L, dur, clockDur } from '../core/i18n.js';
 import { esc, clamp, uid } from '../core/util.js';
@@ -70,7 +71,7 @@ async function openDrawer() {
   clearInterval(drTimer);
   const p = sheet(`<div class="dr-head"><b>📋 ${T('Мои лоты', 'Мої лоти', 'My lots')}</b><button class="dr-x" data-a="closeSheet">✕</button></div><div class="dr-body">${drawerHTML()}</div>`, { cls: 'drawer-r' });
   // live: prices, leaders and timers move while the panel is open
-  drTimer = setInterval(() => { const b = document.querySelector('.sheet.drawer-r .dr-body'); if (!b) { clearInterval(drTimer); return; } const top = b.scrollTop; b.innerHTML = drawerHTML(); b.scrollTop = top; }, 1000);
+  drTimer = setInterval(() => { const b = document.querySelector('.sheet.drawer-r .dr-body'); if (!b) { clearInterval(drTimer); return; } morphHTML(b, drawerHTML()); }, 1000);
   await p; clearInterval(drTimer);
 }
 const drCount = () => myLots().length + myOwn().length;

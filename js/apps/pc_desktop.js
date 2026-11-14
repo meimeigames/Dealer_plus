@@ -18,6 +18,7 @@ import { sfx } from '../ui/sfx.js';
 import { playMini } from '../mini/engine.js';
 import { hasStorage, storageKind, deviceFiles, accessOf, connect, wipe, KIND_NAME, LOCKED } from '../game/files.js';
 import { lootIcon } from '../game/files_extra.js';
+import { morphHTML } from '../ui/morph.js';
 import { filesActions, FV } from './files_view.js';
 import { lockOf, lockText, tryCode, payLocker, lookupCode, cureAll, processList, endTask, deleteFile, defenderCatch, aliveMiners, badProcs, autorun, slowK } from '../game/pcvirus.js';
 import { installerDrive } from '../game/pc.js';
@@ -49,7 +50,9 @@ const osName = () => { const it = myPc().item; return it ? OS[osOf(it)]?.n || 'W
 
 // ---------------------------------------------------------------- open / close
 let layer = null, clock = 0, unsubs = [];
-const onInv = () => { if (D.open) render(); };
+// many events can fire in one go (a scan touches every drive): redraw once per frame, and only what changed
+let rq = 0;
+const onInv = () => { if (!D.open || rq) return; rq = requestAnimationFrame(() => { rq = 0; render(); }); };
 export function openDesktop(o = {}) {
   if (D.open) { if (o.app) openWin(o.app, o.params); return; }
   D.open = true; D.start = false;
@@ -114,8 +117,10 @@ function render() {
   const icons = DESK.map((k) => `<button class="pcd-ic" ${pa('open', k)}><i>${APPS[k].ic}</i><span>${esc(APPS[k].n())}</span></button>`).join('');
   const win = act ? `<div class="pcw"><div class="pcw-bar"><span>${APPS[act.app].ic} ${esc(APPS[act.app].n())}</span><button ${pa('min', act.app)}>—</button><button class="x" ${pa('close', act.app)}>✕</button></div><div class="pcw-body">${body(act)}</div></div>` : '';
   const start = D.start ? `<div class="pcd-start"><div class="pcd-user"><span>${esc((G.s.player.name || '?')[0])}</span><b>${esc(G.s.player.name || '')}</b></div><div class="pcd-sgrid">${DESK.map((k) => `<button ${pa('open', k)}><i>${APPS[k].ic}</i><small>${esc(APPS[k].n())}</small></button>`).join('')}</div><button class="pcd-off" ${pa('power')}>⏻ ${T('Завершение работы', 'Завершення роботи', 'Shut down')}</button></div>` : '';
-  layer.innerHTML = `<div class="pcd ${act ? 'has-win' : ''}"><div class="pcd-desk">${icons}</div>${win}${start}
+  const html = `<div class="pcd ${act ? 'has-win' : ''}"><div class="pcd-desk">${icons}</div>${win}${start}
     <div class="pcd-bar"><button class="pcd-win ${D.start ? 'on' : ''}" ${pa('start')}><i></i><i></i><i></i><i></i></button>${D.wins.map((w) => `<button class="pcd-task ${w.app === D.active && !w.min ? 'on' : ''}" ${pa('task', w.app)}>${APPS[w.app].ic}</button>`).join('')}<span class="grow"></span><span class="pcd-tray">${mineState().on ? '⛏ ' : ''}📶 🔊</span><b class="pcd-clock">${hhmm()}</b></div></div>`;
+  // patch the existing desktop instead of rebuilding it (no flicker, scroll and focus stay put)
+  if (layer.firstElementChild?.classList.contains('pcd')) morphHTML(layer, html); else layer.innerHTML = html;
   if (D.active === 'term') { const out = layer.querySelector('.term-out'); if (out) out.scrollTop = out.scrollHeight; }
 }
 function body(w) {
@@ -315,9 +320,11 @@ function taskmgr() {
 // ---------------------------------------------------------------- winlocker / blue screen
 function renderLock() {
   const L0 = lockOf(), t = lockText();
-  layer.innerHTML = `<div class="pcd-lock"><div class="lk-badge">⚠️</div><h2>${esc(L(t.n))}</h2><p>${T(`Ваш компьютер заблокирован: ${L(t.why)}. Для разблокировки переведите <b>${fmt(L0.ask)}</b> на номер +7 9xx xxx‑xx‑xx и введите код из чека. Через 12 часов все данные будут удалены.`, `Ваш компʼютер заблоковано: ${L(t.why)}. Для розблокування переведіть <b>${fmt(L0.ask)}</b> на номер +380 xx xxx‑xx‑xx і введіть код із чека. Через 12 годин усі дані буде видалено.`, `Your computer is blocked: ${L(t.why)}. To unlock, send <b>${fmt(L0.ask)}</b> and enter the code from the receipt. All data will be deleted in 12 hours.`)}</p>
+  const lockHtml = `<div class="pcd-lock"><div class="lk-badge">⚠️</div><h2>${esc(L(t.n))}</h2><p>${T(`Ваш компьютер заблокирован: ${L(t.why)}. Для разблокировки переведите <b>${fmt(L0.ask)}</b> на номер +7 9xx xxx‑xx‑xx и введите код из чека. Через 12 часов все данные будут удалены.`, `Ваш компʼютер заблоковано: ${L(t.why)}. Для розблокування переведіть <b>${fmt(L0.ask)}</b> на номер +380 xx xxx‑xx‑xx і введіть код із чека. Через 12 годин усі дані буде видалено.`, `Your computer is blocked: ${L(t.why)}. To unlock, send <b>${fmt(L0.ask)}</b> and enter the code from the receipt. All data will be deleted in 12 hours.`)}</p>
     <div class="lk-in"><input data-pin="lcode" inputmode="numeric" maxlength="6" placeholder="____"><button ${pa('lcode')}>OK</button></div>${D.lockMsg ? `<div class="lk-msg">${esc(D.lockMsg)}</div>` : ''}${L0.tries ? `<small class="m">${T('Неверных попыток', 'Невірних спроб', 'Wrong tries')}: ${L0.tries}</small>` : ''}
     <div class="lk-acts"><button ${pa('lpay')}>💸 ${T('Заплатить', 'Заплатити', 'Pay')} ${fmt(L0.ask)}</button><button ${pa('llook')}>📱 ${T('Найти код на сайте антивируса', 'Знайти код на сайті антивірусу', 'Look up the code on an antivirus site')}</button><button ${pa('lreinst')}>💿 ${T('Загрузиться с флешки и переустановить Windows', 'Завантажитися з флешки й перевстановити Windows', 'Boot from a stick and reinstall Windows')}</button><button ${pa('power')}>⏻ ${T('Выключить', 'Вимкнути', 'Shut down')}</button></div></div>`;
+  // the typed code survives redraws (events keep firing while the screen is locked)
+  if (layer.firstElementChild?.classList.contains('pcd-lock')) morphHTML(layer, lockHtml); else layer.innerHTML = lockHtml;
 }
 function bsod() {
   if (!layer) return;

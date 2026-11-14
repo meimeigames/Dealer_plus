@@ -433,3 +433,115 @@ grant execute on function public.gr_home(uuid, text, text, int, text) to anon;
 grant execute on function public.gr_transfer(uuid, text, text, int, uuid, numeric, text) to anon;
 grant execute on function public.gr_tx_cancel(uuid, text, text, bigint) to anon;
 grant execute on function public.gr_submit2(uuid, text, int, numeric, int, int, text, jsonb) to anon;
+
+-- ================================================================ v3: live leaderboard + public profiles
+-- Profile customization (avatar, colour, frame, banner, title, bio, badges), rows with avatars and an
+-- "online" flag, a public profile by nickname, friend requests from a profile, faster and looser submits.
+alter table public.gr_players add column if not exists profile jsonb not null default '{}'::jsonb;
+
+-- the board should follow the game closely: one submit per 8 s, roomier growth caps (still clamped)
+create or replace function public.gr_submit(p_id uuid, p_secret text, p_worth numeric, p_level int, p_playtime int, p_region text, p_stats jsonb)
+returns json language plpgsql security definer set search_path = public, extensions as $$
+declare r gr_players; v_elapsed numeric; v_dt int; v_hours numeric; v_cap numeric; v_accept numeric; v_flag boolean := false;
+begin
+  if not gr_auth(p_id, p_secret) then raise exception 'auth'; end if;
+  select * into r from gr_players where id = p_id for update;
+  v_elapsed := extract(epoch from now() - r.last_submit);
+  if v_elapsed < 8 and r.playtime > 0 then return json_build_object('ok', false, 'reason', 'rate', 'accepted', r.worth); end if;
+  v_dt := greatest(0, least(coalesce(p_playtime, 0) - r.playtime, v_elapsed::int + 30));
+  v_hours := (r.playtime + v_dt) / 3600.0;
+  v_cap := greatest(r.worth, 0) * power(2.5, v_dt / 3600.0) + 90000 * (v_dt / 3600.0) + 4000;
+  v_cap := least(v_cap, 20000 * power(v_hours + 1, 3));
+  v_accept := greatest(0, least(coalesce(p_worth, 0), v_cap));
+  if p_worth > v_cap * 4 and p_worth > 200000 then v_flag := true; end if;
+  update gr_players set worth = v_accept, claimed = p_worth, level = least(greatest(p_level, 1), 300),
+    playtime = r.playtime + v_dt, region = left(coalesce(p_region, region), 4), stats = coalesce(p_stats, '{}'::jsonb),
+    last_submit = now(), flagged = flagged or v_flag
+  where id = p_id;
+  return json_build_object('ok', true, 'accepted', v_accept, 'cap', v_cap, 'flagged', v_flag);
+end $$;
+
+create or replace function public.gr__clean_profile(p jsonb) returns jsonb
+language sql immutable set search_path = public, extensions as $$
+  select jsonb_strip_nulls(jsonb_build_object(
+    'av', nullif(left(coalesce(p->>'av', ''), 8), ''),
+    'c', case when coalesce(p->>'c', '') ~ '^#[0-9a-fA-F]{6}$' then p->>'c' end,
+    'fr', case when coalesce(p->>'fr', '') ~ '^[a-z0-9_]{1,12}$' then p->>'fr' end,
+    'bn', case when coalesce(p->>'bn', '') ~ '^[a-z0-9_]{1,12}$' then p->>'bn' end,
+    't', case when coalesce(p->>'t', '') ~ '^[a-z0-9_]{1,16}$' then p->>'t' end,
+    'bio', nullif(left(regexp_replace(coalesce(p->>'bio', ''), '[[:cntrl:]]+', ' ', 'g'), 90), ''),
+    'bd', (select jsonb_agg(x) from (select left(value, 16) as x from jsonb_array_elements_text(case when jsonb_typeof(p->'bd') = 'array' then p->'bd' else '[]'::jsonb end) limit 8) q
+           where x ~ '^[a-zA-Z0-9_]{1,16}$'),
+    'best', case when jsonb_typeof(p->'best') = 'number' then least(greatest((p->>'best')::numeric, 0), 1e12) end,
+    'city', nullif(left(coalesce(p->>'city', ''), 24), '')
+  ));
+$$;
+
+create or replace function public.gr_set_profile(p_id uuid, p_secret text, p_profile jsonb)
+returns json language plpgsql security definer set search_path = public, extensions as $$
+begin
+  if not gr_auth(p_id, p_secret) then raise exception 'auth'; end if;
+  if length(coalesce(p_profile, '{}'::jsonb)::text) > 2000 then raise exception 'too_big'; end if;
+  update gr_players set profile = gr__clean_profile(coalesce(p_profile, '{}'::jsonb)) where id = p_id;
+  return json_build_object('ok', true);
+end $$;
+
+-- leaderboard rows now carry the small part of the profile and an "online" flag (return type changes → drop first)
+drop function if exists public.gr_leaderboard(text, uuid, text) cascade;
+create function public.gr_leaderboard(p_scope text, p_id uuid default null, p_region text default null)
+returns table(nick text, worth numeric, level int, region text, is_me boolean, profile jsonb, online boolean)
+language sql stable security definer set search_path = public, extensions as $$
+  select p.nick, round(p.worth), p.level, p.region, (p.id = p_id),
+    jsonb_strip_nulls(jsonb_build_object('av', p.profile->'av', 'c', p.profile->'c', 'fr', p.profile->'fr', 't', p.profile->'t')),
+    p.last_submit > now() - interval '3 minutes'
+  from gr_players p
+  where not p.flagged and (
+    p_scope = 'global'
+    or (p_scope = 'region' and p.region = p_region)
+    or (p_scope = 'friends' and (p.id = p_id or p.id in (
+        select b from gr_friends where a = p_id and status = 'accepted'
+        union select a from gr_friends where b = p_id and status = 'accepted')))
+  )
+  order by p.worth desc
+  limit 100;
+$$;
+create or replace function public.gr__board(p_scope text, p_id uuid, p_region text) returns json
+language sql stable security definer set search_path = public, extensions as $$
+  select coalesce(json_agg(json_build_object('nick', b.nick, 'worth', b.worth, 'level', b.level, 'region', b.region, 'me', b.is_me, 'p', b.profile, 'on', b.online)), '[]'::json)
+  from gr_leaderboard(p_scope, p_id, p_region) b;
+$$;
+
+-- a public profile by nickname (what anyone can see when they tap a row)
+create or replace function public.gr_profile(p_nick text, p_id uuid default null)
+returns json language sql stable security definer set search_path = public, extensions as $$
+  select json_build_object('nick', p.nick, 'worth', round(p.worth), 'level', p.level, 'region', p.region, 'stats', p.stats, 'profile', p.profile,
+    'since', p.created_at, 'seen', p.last_submit, 'online', p.last_submit > now() - interval '3 minutes', 'playtime', p.playtime,
+    'rank', (select count(*) + 1 from gr_players q where not q.flagged and q.worth > p.worth),
+    'rank_region', (select count(*) + 1 from gr_players q where not q.flagged and q.region = p.region and q.worth > p.worth),
+    'friends', (select count(*) from gr_friends f where f.status = 'accepted' and (f.a = p.id or f.b = p.id)),
+    'me', p.id = p_id,
+    'friend', case when p_id is null or p.id = p_id then null
+      when exists(select 1 from gr_friends f where f.status = 'accepted' and ((f.a = p_id and f.b = p.id) or (f.a = p.id and f.b = p_id))) then 'yes'
+      when exists(select 1 from gr_friends f where f.status = 'pending' and f.a = p_id and f.b = p.id) then 'sent'
+      when exists(select 1 from gr_friends f where f.status = 'pending' and f.a = p.id and f.b = p_id) then 'incoming'
+      else 'no' end,
+    'pid', case when p_id is not null and p.id <> p_id then p.id end)
+  from gr_players p where p.nick = p_nick and not p.flagged;
+$$;
+
+-- friend request straight from someone's profile (no code needed)
+create or replace function public.gr_friend_request_nick(p_id uuid, p_secret text, p_nick text)
+returns json language plpgsql security definer set search_path = public, extensions as $$
+declare v_code text;
+begin
+  select code into v_code from gr_players where nick = p_nick and not flagged;
+  if v_code is null then raise exception 'not_found'; end if;
+  return gr_friend_request(p_id, p_secret, v_code);
+end $$;
+
+revoke all on function public.gr__clean_profile(jsonb) from anon, authenticated, public;
+revoke all on function public.gr__board(text, uuid, text) from anon, authenticated, public;
+grant execute on function public.gr_leaderboard(text, uuid, text) to anon;
+grant execute on function public.gr_set_profile(uuid, text, jsonb) to anon;
+grant execute on function public.gr_profile(text, uuid) to anon;
+grant execute on function public.gr_friend_request_nick(uuid, text, text) to anon;

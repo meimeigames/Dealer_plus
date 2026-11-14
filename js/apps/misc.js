@@ -11,9 +11,12 @@ import { CATS } from '../data/catalog.js';
 import { icon } from '../ui/icons.js';
 import { go, rerender, toast, confirmBox, choose, sheet, resolveSheet, ago, renderHome, refreshAll, UI, openApp } from '../ui/shell.js';
 import { empty, bar, kv, segbar, sparkline, avatar } from '../ui/comp.js';
-import { ensureDaily, questProgress, questText, claimQuest, STORY, ACH, achTier } from '../game/quests.js';
+import { ensureDaily, questProgress, questText, claimQuest, STORY, ACH, achTier, achReward, claimAch, achBadge, QUEST_K } from '../game/quests.js';
 import { UPGRADES, upLevel, upCost, UP_MAX, spend, getStat, netWorth, repScore, addXP } from '../game/player.js';
 import { newsText } from '../game/news.js';
+import { liveBoard, LIVE } from '../game/online.js';
+import { pAvatar, titleChip, publicProfile } from '../game/profile.js';
+import { playerView, playerActions } from './players.js';
 import { onlineEnabled, isRegistered, register, offlineBoard, friendRequest, friendRespond, nudge, errText, submit, serverSource, serverUrl, setServer, clearServer, inviteLink, ping, HOME, homeData, sync } from '../game/online.js';
 import { sfx } from '../ui/sfx.js';
 
@@ -24,15 +27,18 @@ function questsMain() {
   const st = STORY[s.quests.story];
   return `<h2 class="sec">${T('Ежедневные', 'Щоденні', 'Daily')}</h2>` + list.map((q) => { const p = questProgress(q); const done = p >= q.target; return `<div class="card ${q.done ? 'hl' : ''}"><div class="row between"><b>${esc(questText(q))}</b><span class="small g">+${fmt(q.reward)} · ${q.xp} XP</span></div>${bar((Math.min(p, q.target) / q.target) * 100)}<div class="row between mt"><span class="small m">${q.money ? fmt(p) : p} / ${q.money ? fmt(q.target) : q.target}</span>${q.done ? `<span class="tag g">✓</span>` : done ? `<button class="btn xs green" data-a="claim" data-v="${q.id}">${T('Забрать', 'Забрати', 'Claim')}</button>` : ''}</div></div>`; }).join('') +
     `<h2 class="sec">${T('Путь к империи', 'Шлях до імперії', 'Road to an empire')} <span class="small m">${s.quests.story}/${STORY.length}</span></h2>` +
-    STORY.map((x, i) => `<div class="card ${i < s.quests.story ? 'hl' : i === s.quests.story ? '' : ''}" style="${i > s.quests.story ? 'opacity:.45' : ''}"><div class="row"><div style="width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;background:${i < s.quests.story ? 'var(--acc)' : 'var(--panel3)'};color:${i < s.quests.story ? '#04170e' : 'var(--text)'};font-weight:800">${i < s.quests.story ? '✓' : i + 1}</div><div class="grow"><b>${esc(L(x.n))}</b>${i === s.quests.story ? `<div class="d">${esc(L(x.d))}</div>` : ''}</div><span class="small m">+${fmt(x.r * countryOf(s.player.city).wage)}</span></div></div>`).join('') +
-    `<h2 class="sec">${T('Достижения', 'Досягнення', 'Achievements')}</h2><div class="tiles" style="grid-template-columns:1fr 1fr 1fr;gap:8px">${ACH.map((a) => { const t = achTier(a); return `<div class="stat center" style="${t ? '' : 'opacity:.5'}"><div style="font-size:24px">${['🔒', '🥉', '🥈', '🥇', '💎'][t]}</div><b style="font-size:13px;white-space:normal">${esc(L(a.n))}</b><small>${a.money ? fmt(getStat(a.stat), { short: true }) : Math.floor(getStat(a.stat))}${a.tiers[t] != null ? ' / ' + (a.money ? fmt(a.tiers[t], { short: true }) : a.tiers[t]) : ''}</small></div>`; }).join('')}</div>`;
+    STORY.map((x, i) => `<div class="card ${i < s.quests.story ? 'hl' : i === s.quests.story ? '' : ''}" style="${i > s.quests.story ? 'opacity:.45' : ''}"><div class="row"><div style="width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;background:${i < s.quests.story ? 'var(--acc)' : 'var(--panel3)'};color:${i < s.quests.story ? '#04170e' : 'var(--text)'};font-weight:800">${i < s.quests.story ? '✓' : i + 1}</div><div class="grow"><b>${esc(L(x.n))}</b>${i === s.quests.story ? `<div class="d">${esc(L(x.d))}</div>` : ''}</div><span class="small m">+${fmt(x.r * QUEST_K * countryOf(s.player.city).wage)}</span></div></div>`).join('') +
+    `<h2 class="sec">${T('Достижения', 'Досягнення', 'Achievements')}</h2><div class="tiles" style="grid-template-columns:1fr 1fr 1fr;gap:8px">${ACH.map((a) => { const t = achTier(a); return `<div class="stat center" style="${t ? '' : 'opacity:.5'}"><div style="font-size:24px">${['🔒', '🥉', '🥈', '🥇', '💎'][t]}</div><b style="font-size:13px;white-space:normal">${esc(L(a.n))}</b><small>${a.money ? fmt(getStat(a.stat), { short: true }) : Math.floor(getStat(a.stat))}${a.tiers[t] != null ? ' / ' + (a.money ? fmt(a.tiers[t], { short: true }) : a.tiers[t]) : ''}</small>${achReward(a) ? `<button class="btn xs mt" data-a="achclaim" data-v="${a.stat}">+${fmt(achReward(a), { short: true })}</button>` : ''}</div>`; }).join('')}</div>`;
 }
 export const questsApp = {
   id: 'quests', glyph: 'trophy', lvl: 1,
   name: ['Задания', 'Завдання', 'Quests'], colors: ['#ffc23d', '#e09400'], glyphColor: '#fff',
-  badge: () => ensureDaily().filter((q) => !q.done && questProgress(q) >= q.target).length,
+  badge: () => ensureDaily().filter((q) => !q.done && questProgress(q) >= q.target).length + achBadge(),
   views: { main: questsMain },
-  actions: { claim: (id) => { const q = G.s.quests.list.find((x) => x.id === id); if (claimQuest(q)) { sfx('cash'); toast(`+${fmt(q.reward)}`, 'g'); } rerender(); } },
+  actions: {
+    claim: (id) => { const q = G.s.quests.list.find((x) => x.id === id); if (claimQuest(q)) { sfx('cash'); toast(`+${fmt(q.reward)}`, 'g'); } rerender(); },
+    achclaim: (stat) => { const a = ACH.find((x) => x.stat === stat); const got = a && claimAch(a); if (got) { sfx('cash'); toast(`+${fmt(got)}`, 'g'); } rerender(); },
+  },
 };
 
 // ---------------------------------------------------------------- UPGRADES
@@ -96,7 +102,11 @@ function boardRows() {
   if (!onlineEnabled()) return offlineBoard();
   const d = homeData();
   if (!d) return null;
-  return (d.boards?.[RT.scope] || []).map((r) => ({ nick: r.nick, worth: +r.worth, level: r.level, region: r.region, me: r.me }));
+  const rows = (d.boards?.[RT.scope] || []).map((r) => ({ nick: r.nick, worth: +r.worth, level: r.level, region: r.region, me: r.me, p: r.p || {}, on: r.on }));
+  // your own row shows your live numbers and look right away (the server catches up within seconds)
+  const mine = rows.find((r) => r.me);
+  if (mine) { mine.worth = Math.max(0, netWorth()); mine.level = G.s.level; mine.p = publicProfile(); mine.on = true; rows.sort((a, b) => b.worth - a.worth); }
+  return rows;
 }
 function ratingMain() {
   const s = G.s;
@@ -111,13 +121,14 @@ function ratingMain() {
   const rows = boardRows();
   if (!rows) h += `<div class="lb-skel">${'<div class="lb-row"><div class="pos"></div><i></i><div class="grow"><b></b></div></div>'.repeat(6)}</div>`;
   else if (!rows.length) h += `<p class="p">${RT.scope === 'friends' ? T('Добавьте друзей по коду ниже.', 'Додайте друзів за кодом нижче.', 'Add friends by code below.') : T('Пока пусто — будьте первым!', 'Поки порожньо — будьте першим!', 'Empty — be the first!')}</p>`;
-  else h += rows.slice(0, 100).map((r, i) => `<div class="lb-row ${r.me ? 'me' : ''}"><div class="pos ${i < 3 ? 'p' + (i + 1) : ''}">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</div>${avatar(r.nick, (r.nick.charCodeAt(0) * 37) % 360)}<div class="grow"><b>${esc(r.nick)}</b><div class="small m">${T('ур.', 'рів.', 'lvl')} ${r.level} · ${esc(r.region || '')}</div></div><b class="g">${fmt(r.worth, { short: true })}</b></div>`).join('');
+  else h += (on ? `<div class="lb-live"><i></i>${T('Рейтинг обновляется сам каждые несколько секунд · нажмите на игрока, чтобы открыть профиль', 'Рейтинг оновлюється сам кожні кілька секунд · натисніть на гравця, щоб відкрити профіль', 'Updates live every few seconds · tap a player to open their profile')}</div>` : '')
+    + rows.slice(0, 100).map((r, i) => `<div class="lb-row ${r.me ? 'me' : ''}" data-key="lb_${esc(r.nick)}" ${on ? `data-a="pview" data-v="${esc(r.nick)}"` : ''}><div class="pos ${i < 3 ? 'p' + (i + 1) : ''}">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</div><div class="lb-av">${pAvatar(r.p, r.nick)}${r.on ? '<i class="lb-on"></i>' : ''}</div><div class="grow"><b>${esc(r.nick)}</b>${titleChip(r.p)}<div class="small m">${T('ур.', 'рів.', 'lvl')} ${r.level} · ${esc(r.region || '')}</div></div><b class="g">${fmt(r.worth, { short: true })}</b></div>`).join('');
   if (on && isRegistered()) {
     const fr = soc || { friends: [], incoming: [], outgoing: [], inbox: [] };
     h += `<h2 class="sec">${T('Друзья', 'Друзі', 'Friends')}</h2><div class="card"><div class="small m">${T('Ваш код друга', 'Ваш код друга', 'Your friend code')}</div><div class="row between"><b class="mono" style="font-size:24px;letter-spacing:3px">${esc(s.online.code)}</b><button class="btn xs dark" data-a="copy">${T('Копировать', 'Копіювати', 'Copy')}</button></div><div class="row mt" style="gap:8px"><input class="input" id="fcode" placeholder="${T('Код друга', 'Код друга', 'Friend code')}" style="text-transform:uppercase"><button class="btn" data-a="addf">+</button></div></div>`;
     if (fr.incoming?.length) h += `<h3 class="sub">${T('Заявки', 'Заявки', 'Requests')}</h3>` + fr.incoming.map((x) => `<div class="list-item">${avatar(x.nick)}<div class="grow"><b>${esc(x.nick)}</b></div><button class="btn xs green" data-a="facc" data-v="${x.id}">✓</button><button class="btn xs dark" data-a="fdec" data-v="${x.id}">✕</button></div>`).join('');
     if (fr.outgoing?.length) h += `<div class="small m mb">${T('Ждут ответа', 'Чекають відповіді', 'Waiting')}: ${fr.outgoing.map((x) => esc(x.nick)).join(', ')}</div>`;
-    h += (fr.friends || []).map((x) => `<div class="list-item">${avatar(x.nick)}<div class="grow"><b>${esc(x.nick)}</b><div class="small m">${T('ур.', 'рів.', 'lvl')} ${x.level} · ${fmt(x.worth, { short: true })} · ${T('продаж', 'продажів', 'sales')} ${x.stats?.sold ?? 0}</div></div><button class="btn xs" data-a="sendf" data-v="${x.id}">💸</button><button class="btn xs dark" data-a="nudge" data-v="${x.id}">👋</button></div>`).join('') || (soc ? `<p class="p">${T('Добавьте друзей по коду, чтобы соревноваться.', 'Додайте друзів за кодом, щоб змагатися.', 'Add friends by code to compete.')}</p>` : '');
+    h += (fr.friends || []).map((x) => `<div class="list-item">${avatar(x.nick)}<div class="grow" data-a="pview" data-v="${esc(x.nick)}"><b>${esc(x.nick)}</b><div class="small m">${T('ур.', 'рів.', 'lvl')} ${x.level} · ${fmt(x.worth, { short: true })} · ${T('продаж', 'продажів', 'sales')} ${x.stats?.sold ?? 0}</div></div><button class="btn xs" data-a="sendf" data-v="${x.id}">💸</button><button class="btn xs dark" data-a="nudge" data-v="${x.id}">👋</button></div>`).join('') || (soc ? `<p class="p">${T('Добавьте друзей по коду, чтобы соревноваться.', 'Додайте друзів за кодом, щоб змагатися.', 'Add friends by code to compete.')}</p>` : '');
     if (fr.inbox?.length) h += `<h3 class="sub">${T('Вам прислали', 'Вам надіслали', 'Received')}</h3>` + fr.inbox.slice(0, 8).map((n) => `<div class="kv"><span>${esc(n.nick)}</span><b>${esc(n.emoji)}</b></div>`).join('');
     h += `<p class="tiny m">${T('💸 Деньги друзьям — через Банк → «Другу»: лимиты, комиссия, налог страны получателя и защита от дюпа.', '💸 Гроші друзям — через Банк → «Другу»: ліміти, комісія, податок країни отримувача й захист від дюпу.', '💸 Send money to friends in Bank → “To a friend”: limits, a fee, the payee’s country tax and anti‑dupe checks.')}</p>`;
   }
@@ -128,9 +139,12 @@ const optimistic = (fn) => { const d = homeData(); if (d?.social) { fn(d.social)
 export const ratingApp = {
   id: 'rating', glyph: 'crown', lvl: 1,
   name: ['Рейтинг', 'Рейтинг', 'Leaderboard'], colors: ['#ffb02e', '#d47a00'], glyphColor: '#fff',
-  views: { main: ratingMain },
-  onOpen: () => { if (isRegistered()) submit(true).catch(() => {}); },
+  views: { main: ratingMain, player: playerView },
+  title: (v, p) => (v === 'player' ? p?.nick || '' : T('Рейтинг', 'Рейтинг', 'Leaderboard')),
+  onOpen: () => { if (isRegistered()) submit(true).catch(() => {}); liveBoard(true); },
+  onClose: () => liveBoard(false),
   actions: {
+    ...playerActions,
     scope: (v) => { RT.scope = v; rerender(); },
     reload: () => { refresh(true); rerender(); },
     reg: async () => { const nick = document.getElementById('nick').value.trim(); try { await register(nick); sfx('win'); toast(T('Вы в рейтинге!', 'Ви в рейтингу!', 'You’re on the board!'), 'g'); refresh(true); rerender(); } catch (e) { toast(errText(e), 'r'); } },

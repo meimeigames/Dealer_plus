@@ -1,4 +1,5 @@
 // Other item sources: free giveaways, dumpster finds, pawn shop, wholesale lots, mystery boxes, auctions.
+import { isBannedItem, blockMsg } from './banned.js';
 import { G, emit } from '../core/state.js';
 import { RNG } from '../core/rng.js';
 import { T, L } from '../core/i18n.js';
@@ -390,7 +391,7 @@ function closeLot(lot) {
 export function startOwnAuction(itemId, start, dur = 240) {
   const s = G.s;
   const it = getItem(itemId);
-  if (!it || it.listed || it.shop) return false;
+  if (!it || it.listed || it.shop || isBannedItem(it)) return false;
   it.listed = true; it.auction = { start, end: s.t + dur, bid: 0, bids: 0 };
   s.ownAuctions ||= [];
   s.ownAuctions.push({ itemId, start, end: s.t + dur });

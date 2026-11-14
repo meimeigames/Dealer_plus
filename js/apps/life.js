@@ -1,6 +1,8 @@
 // Life apps: Profile (needs, sleep, food), Real estate, Travel, City map (flea market) and Pawn shop.
 import { G, emit } from '../core/state.js';
 import { recordCard } from '../ui/record.js';
+import { customView, customActions } from './players.js';
+import { pAvatar, titleChip, publicProfile } from '../game/profile.js';
 import { noNeeds } from '../game/needs.js';
 import { T, L, dur, fmtDate } from '../core/i18n.js';
 import { esc, clamp, uid } from '../core/util.js';
@@ -33,7 +35,9 @@ function profMain() {
   const s = G.s;
   const h = houseDef();
   const car = s.car ? getItem(s.car) : null;
-  return `<div class="card"><div class="levelrow"><div class="lv">${s.level}</div><div class="grow"><b style="font-size:19px">${esc(s.player.name)}</b><div class="small m">${countryOf(s.player.city).flag} ${esc(cityName())} · ★ ${repScore() ? repScore().toFixed(2) : '—'} (${s.rep.n})</div>${bar((s.xp / xpNeed(s.level)) * 100, 'var(--acc2)')}<div class="tiny m">XP ${s.xp} / ${xpNeed(s.level)}</div></div></div></div>
+  const pub = publicProfile();
+  return `<div class="card pp-mini" data-a="open" data-v="profile" data-w="custom">${pAvatar(pub, s.player.name, 'md')}<div class="grow"><b>${esc(s.player.name)}</b>${titleChip(pub)}<div class="small m">🎨 ${T('Аватар, рамка, баннер, титул — настроить', 'Аватар, рамка, банер, титул — налаштувати', 'Avatar, frame, banner, title — customize')}</div></div><span class="m">›</span></div>
+  <div class="card"><div class="levelrow"><div class="lv">${s.level}</div><div class="grow"><b style="font-size:19px">${esc(s.player.name)}</b><div class="small m">${countryOf(s.player.city).flag} ${esc(cityName())} · ★ ${repScore() ? repScore().toFixed(2) : '—'} (${s.rep.n})</div>${bar((s.xp / xpNeed(s.level)) * 100, 'var(--acc2)')}<div class="tiny m">XP ${s.xp} / ${xpNeed(s.level)}</div></div></div></div>
     ${noNeeds() ? `<div class="card small">🍔⚡ ${T('Еда и энергия выключены в настройках: голода и усталости нет, действия занимают игровое время.', 'Їжа та енергія вимкнені в налаштуваннях: голоду й утоми немає, дії займають ігровий час.', 'Food & energy are off in Settings: no hunger or tiredness, actions take game time.')}</div>` : ''}
     <div class="stats"><div class="stat"><small>⚡ ${T('Энергия', 'Енергія', 'Energy')}</small><b data-live="energy">${Math.round(s.energy)}</b>${bar(s.energy, s.energy < 25 ? 'var(--red)' : '')}</div><div class="stat"><small>🍔 ${T('Сытость', 'Ситість', 'Food')}</small><b data-live="food">${Math.round(s.food)}</b>${bar(s.food, 'var(--yel)')}</div></div>
     <div class="btns"><button class="btn" data-a="eatMenu">🍔 ${T('Поесть', 'Поїсти', 'Eat')}</button><button class="btn dark" data-a="sleepMenu">🌙 ${T('Спать', 'Спати', 'Sleep')}</button></div>
@@ -47,8 +51,10 @@ function profMain() {
 export const profileApp = {
   id: 'profile', glyph: 'user', lvl: 1,
   name: ['Профиль', 'Профіль', 'Profile'], colors: ['#ff6a4d', '#d63a2a'],
-  views: { main: profMain },
+  views: { main: profMain, custom: customView },
+  title: (v) => (v === 'custom' ? T('Оформление профиля', 'Оформлення профілю', 'Profile look') : T('Профиль', 'Профіль', 'Profile')),
   actions: {
+    ...customActions,
     eatMenu: async () => {
       const v = await choose(T('Поесть', 'Поїсти', 'Eat'), FOOD.filter((f) => !f.meds || isSick()).map((f) => ({ v: f.id, label: `${f.icon} ${L(f.n)} · ${fmt(foodPrice(f))}`, sub: f.meds ? T('снимает расстройство', 'знімає розлад', 'settles your stomach') : `+${f.food} 🍔${f.energy ? ` +${f.energy} ⚡` : ''}${f.junk >= 0.7 ? ' · ' + T('вредно', 'шкідливо', 'junk') : f.healthy ? ' · ' + T('полезно', 'корисно', 'healthy') : ''}` })));
       if (!v) return;

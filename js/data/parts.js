@@ -78,31 +78,31 @@ const CLOSE = ['wires'];
 export const RECIPES = {
   // phones: heat the glue, open in the right order, reconnect; battery strips; ultrasonic bath; press; sound check
   crack: R('display', [], 'heatgun', ['ph_heat', 'ph_open', 'wires']), deadpix: R('display', [], 'heatgun', ['ph_heat', 'ph_open', 'wires']), nonorig: R('display', [], 'heatgun', ['ph_heat', 'ph_open', 'wires']),
-  backcrack: R('backglass', [], 'heatgun', ['ph_heat', 'align']), scratches: R(null, ['polish'], null, ['scrub']), battery: R('battery', [], 'screwdrivers', ['ph_open', 'ph_battery', 'wires']),
+  backcrack: R('backglass', [], 'heatgun', ['ph_heat', 'ph_backglass']), scratches: R(null, ['polish'], null, ['scrub']), battery: R('battery', [], 'screwdrivers', ['ph_open', 'ph_battery', 'wires']),
   button: R('flex', [], 'solder', ['ph_open', 'solder', 'wires']), faceid: R('faceid', [], 'microscope', ['ph_open', 'solder', 'wires']), water: R(null, ['cleaner'], 'ultrasonic', ['ph_open', 'ph_ultra', 'scrub']),
-  camera: R('lens', [], 'screwdrivers', ['align']), bent: R('frame', [], 'screwdrivers', ['ph_open', 'ph_bend', 'wires']), speaker: R('speaker', [], 'screwdrivers', ['ph_open', 'align', 'ph_speaker']), port: R('port', [], 'solder', ['ph_open', 'solder', 'wires']),
+  camera: R('lens', [], 'screwdrivers', ['ph_lens']), bent: R('frame', [], 'screwdrivers', ['ph_open', 'ph_bend', 'wires']), speaker: R('speaker', [], 'screwdrivers', ['ph_open', 'ph_spk', 'ph_speaker']), port: R('port', [], 'solder', ['ph_open', 'solder', 'wires']),
   // laptops, cameras, tablets
   e_crack: R('display', [], 'heatgun', ['lt_screws', 'ph_heat', 'wires']), e_keys: R('keyboard', [], 'screwdrivers', ['lt_screws', 'lt_keys']), e_battery: R('battery', [], 'screwdrivers', ['lt_screws', 'wires']),
   e_hinge: R('hinge', [], 'screwdrivers', ['lt_screws', 'lt_hinge']), e_dent: R(null, ['putty'], null, ['lt_dent', 'scrub']), e_scratch: R(null, ['polish'], null, ['scrub']), e_fan: R('fan', ['paste'], 'screwdrivers', ['lt_screws', 'scrub', 'lt_paste']),
-  e_dead: R('board', [], 'solder', ['lt_screws', 'lt_short', 'solder']), e_water: R(null, ['cleaner'], 'ultrasonic', ['lt_screws', 'ph_ultra', 'scrub']), e_lens: R('lens', [], 'screwdrivers', ['align']),
+  e_dead: R('board', [], 'solder', ['lt_screws', 'lt_short', 'solder']), e_water: R(null, ['cleaner'], 'ultrasonic', ['lt_screws', 'ph_ultra', 'scrub']), e_lens: R('lens', [], 'screwdrivers', ['cam_lens']),
   // consoles
   c_drive: R('drive', [], 'screwdrivers', ['cn_open', 'cn_laser']), c_hdmi: R('hdmi', [], 'solder', ['cn_open', 'solder']), c_fan: R(null, ['paste'], 'screwdrivers', ['cn_open', 'scrub', 'lt_paste']),
   c_scratch: R(null, ['polish'], null, ['scrub']), c_yellow: R(null, ['retrobright'], null, ['cn_retro']), c_dead: R('psu', [], 'solder', ['cn_open', 'lt_short', 'solder']), c_drift: R('stick', [], 'solder', ['cn_open', 'cn_stick']),
   // sneakers, clothes, bags
   s_crease: R(null, ['crease_guard'], null, ['sh_steam']), s_yellow: R(null, ['whitener'], null, ['scrub']), s_scuff: R(null, ['cleaner'], null, ['scrub']), s_stain: R(null, ['cleaner'], null, ['scrub']),
-  s_sole: R(null, ['glue'], null, ['sh_glue', 'sh_press']), s_insole: R(null, ['insoles'], null, ['align']), s_smell: R(null, ['deodorizer'], null, ['scrub']), s_paint: R(null, ['leather_paint'], 'leather_kit', ['color']),
+  s_sole: R(null, ['glue'], null, ['sh_glue', 'sh_press']), s_insole: R(null, ['insoles'], null, ['sh_insole']), s_smell: R(null, ['deodorizer'], null, ['scrub']), s_paint: R(null, ['leather_paint'], 'leather_kit', ['color']),
   w_stain: R(null, ['cleaner'], null, ['scrub']), w_hole: R(null, ['thread'], 'sewing', ['cl_stitch']), w_fade: R(null, ['dye'], null, ['color']), w_pill: R(null, [], 'lint', ['scrub']), w_zip: R(null, ['zipper'], 'sewing', ['cl_zip']),
   b_corner: R(null, ['leather_paint'], 'leather_kit', ['bg_edge', 'color']), b_handle: R(null, ['cleaner'], null, ['scrub']), b_stain: R(null, ['cleaner'], null, ['scrub']), b_hw: R(null, ['polish'], 'polisher', ['scrub']),
   b_lining: R(null, ['lining'], 'sewing', ['cl_stitch']), b_smell: R(null, ['deodorizer'], null, ['scrub']), b_shape: R(null, ['stuffing'], null, ['bg_steam']),
   // watches, jewellery, perfume
-  t_crystal: R(null, ['polish'], 'polisher', ['scrub']), t_crack: R('crystal', [], 'watch_tools', ['wt_back', 'align']), t_dead: R(null, ['watch_oil'], 'watch_tools', ['wt_back', 'align', 'wt_reg']),
-  t_slow: R(null, ['watch_oil'], 'watch_tools', ['wt_back', 'wt_reg']), t_bezel: R('bezel', [], 'watch_tools', ['align']), t_strap: R(null, ['polish'], 'polisher', ['scrub']),
+  t_crystal: R(null, ['polish'], 'polisher', ['scrub']), t_crack: R('crystal', [], 'watch_tools', ['wt_back', 'wt_crystal']), t_dead: R(null, ['watch_oil'], 'watch_tools', ['wt_back', 'wt_clean', 'wt_reg']),
+  t_slow: R(null, ['watch_oil'], 'watch_tools', ['wt_back', 'wt_reg']), t_bezel: R('bezel', [], 'watch_tools', ['wt_bezel']), t_strap: R(null, ['polish'], 'polisher', ['scrub']),
   j_scratch: R(null, ['polish'], 'polisher', ['scrub']), j_stone: R(null, ['stone'], 'jeweler', ['jw_prongs']), j_bent: R(null, [], 'jeweler', ['jw_size']), j_clasp: R(null, ['clasp'], 'jeweler', ['jw_solder']), j_tarnish: R(null, ['cleaner'], null, ['scrub']),
-  p_cap: R(null, ['perfume_cap'], null, ['align']),
+  p_cap: R(null, ['perfume_cap'], null, ['pf_cap']),
   // cars
   v_dent: R(null, [], 'dent_kit', ['car_pdr']), v_rust: R(null, ['rust_kit', 'car_paint'], 'compressor', ['scrub', 'color']), v_scratch: R(null, ['car_polish'], 'polisher', ['scrub']), v_paint: R(null, ['car_paint'], 'compressor', ['color']),
   v_light: R('headlight', [], null, ['car_lights', 'car_aim']), v_engine: R('engine_kit', [], 'lift', ['car_obd', 'car_bolts', 'car_idle']), v_gearbox: R('gearbox_kit', [], 'lift', ['car_bolts', 'car_fluid']), v_tire: R('tire', [], 'lift', ['car_lug', 'car_pump']),
-  v_glass: R('windshield', [], null, ['car_seal', 'align']), v_electric: R('wiring', [], 'obd', ['car_fuse']),
+  v_glass: R('windshield', [], null, ['car_seal', 'car_glass']), v_electric: R('wiring', [], 'obd', ['car_fuse']),
   // bikes
   bk_rust: R(null, ['rust_kit'], null, ['scrub']), bk_scratch: R(null, ['polish'], null, ['scrub']), bk_brake: R('brake_pads', [], 'bike_tools', ['bk_brake']), bk_wheel: R(null, [], 'bike_tools', ['bk_true']),
   bk_battery: R('battery', [], 'bike_tools', ['bk_cells', 'solder']), bk_dent: R(null, ['putty'], 'dent_kit', ['car_pdr']),
@@ -110,9 +110,12 @@ export const RECIPES = {
   i_scratch: R(null, ['polish'], null, ['scrub']), i_neck: R(null, [], 'screwdrivers', ['in_truss', 'in_tune']), i_electro: R(null, [], 'solder', ['solder', 'in_tune']), i_crack: R(null, ['glue'], null, ['in_glue']),
   i_frets: R(null, ['polish'], null, ['scrub', 'in_tune']), i_keys: R(null, [], 'screwdrivers', ['lt_keys']),
 };
+// categories without a full recipe: their own game, with consumables picked by the old fix type
+const OWN_GAME = { x_pins: 'cpu_pins', s_crack: 'hdd_glue', a_broken: 'fix_part', m_spine: 'cm_press', m_tear: 'cm_tear', y_missing: 'toy_find', y_broken: 'toy_glue', q_crack: 'ant_resin', q_mech: 'ant_mech', r_tear: 'art_stitch', r_frame: 'art_frame', cnrom: 'fw_flash' };
 // fallback for categories without a dedicated recipe (antiques, art, cards…): consumables by minigame
 export function recipeFor(code) {
   if (RECIPES[code]) return RECIPES[code];
+  if (OWN_GAME[code]) { const fix = DEFECTS[code]?.fix?.[0]; const cons = { scrub: ['cleaner'], color: ['restore'], align: ['restore'], wires: [] }[fix] ?? ['restore']; return R(null, cons, null, [OWN_GAME[code]]); }
   const fix = DEFECTS[code]?.fix;
   if (!fix) return null;
   const game = { dent: 'dentfix', screen: 'align' }[fix[0]] || fix[0];
