@@ -147,7 +147,7 @@ function makeWholesale(rng) {
   const n = rng.int(5, 15);
   const items = [];
   const maxVal = Math.max(200, maxValForLevel() / 4);
-  for (let i = 0; i < n; i++) items.push(makeItem(rng, { city: s.player.city, cat, quality: rng.chance(0.5) ? 'any' : 'junk', maxVal, lockRate: 0.15, fakeMult: 1.4 }));
+  for (let i = 0; i < n; i++) items.push(makeItem(rng, { city: s.player.city, cat, quality: rng.chance(0.5) ? 'any' : 'junk', maxVal, lockRate: 0.15, fakeMult: 2.6 }));
   const total = items.reduce((a, it) => a + itemValue(it, s.player.city, 'true'), 0);
   const price = nicePrice(total * rng.float(0.5, 0.82), countryOf(s.player.city).cur);
   return { id: uid('w'), cat, name: LOT_NAMES[cat] || LOT_NAMES.default, items, price, sold: false, until: s.t + 900 };
@@ -164,14 +164,104 @@ export function buyWholesale(w) {
   return { ok: true };
 }
 
+// Things you buy blind (boxes, containers, bulk lots) hide replicas more often than things you can inspect first.
+// The item keeps looking like an original — only a legit check (or an unhappy buyer) shows the truth.
+export function hideFake(it, rng, mult = 2) {
+  const base = CATS[it.cat]?.fake || 0;
+  if (!base || isVehicle(it) || it.fake) return false;
+  if (!rng.chance(clamp(base * mult, 0, 0.62))) return false;
+  it.fake = rng.chance(0.6) ? 2 : 1;
+  it.fakeKnown = false; it.authOk = false;
+  return true;
+}
+
+// ---------------------------------------------------------------- containers you buy blind, in price classes
+// You see the class, how many things are inside (roughly) and a couple of categories. Inside: junk, ordinary stuff
+// and sometimes a jackpot; hidden defects, locks and replicas are common. Delivered in a few hours, then you open it.
+export const CONTAINERS = [
+  { id: 'garage', ic: '🧺', n: ['Гаражный', 'Гаражний', 'Garage clear‑out'], price: 120, cnt: [4, 7], ev: 1.05, cats: null, q: 'junk', fake: 1.6, eta: 120, d: ['Вывезли из чужого гаража: инструменты, старая техника, мелочи.', 'Вивезли з чужого гаража: інструменти, стара техніка, дрібниці.', 'Hauled out of someone’s garage: tools, old tech, odds and ends.'] },
+  { id: 'storage', ic: '📦', n: ['Складской', 'Складський', 'Storage unit'], price: 450, cnt: [5, 9], ev: 0.92, cats: null, q: 'any', fake: 2, eta: 180, d: ['Брошенная ячейка хранения: что угодно — от хлама до находки.', 'Покинута комірка зберігання: що завгодно — від мотлоху до знахідки.', 'An abandoned storage unit: anything from junk to a find.'] },
+  { id: 'move', ic: '🚚', n: ['Переезд', 'Переїзд', 'House move'], price: 1200, cnt: [6, 10], ev: 0.92, cats: ['phones', 'electronics', 'consoles', 'clothing', 'sneakers', 'instruments', 'gear', 'accessories', 'toys'], q: 'any', fake: 1.8, eta: 240, d: ['Семья уехала за границу и продала всё разом.', 'Родина поїхала за кордон і продала все разом.', 'A family moved abroad and sold everything in one go.'] },
+  { id: 'sea', ic: '🚢', n: ['Морской 20 футов', 'Морський 20 футів', '20‑ft sea container'], price: 3500, cnt: [8, 14], ev: 0.93, cats: ['phones', 'electronics', 'consoles', 'sneakers', 'clothing', 'accessories', 'pcparts', 'toys'], q: 'good', fake: 2.6, eta: 360, d: ['Невостребованный груз из порта. Много нового — и много «почти оригинала».', 'Незатребуваний вантаж із порту. Багато нового — і багато «майже оригіналу».', 'Unclaimed port cargo. Lots of new stuff — and lots of “almost original”.'] },
+  { id: 'customs', ic: '🛃', n: ['Таможенный конфискат', 'Митний конфіскат', 'Customs seizure'], price: 9000, cnt: [8, 14], ev: 0.94, cats: ['phones', 'electronics', 'watches', 'bags', 'sneakers', 'perfume', 'consoles'], q: 'good', fake: 3, eta: 480, d: ['Изъято на границе. Таможня не проверяла подлинность — это ваша забота.', 'Вилучено на кордоні. Митниця не перевіряла справжність — це ваш клопіт.', 'Seized at the border. Customs didn’t authenticate anything — that’s on you.'] },
+  { id: 'boutique', ic: '💎', n: ['Банкротство бутика', 'Банкрутство бутика', 'Boutique bankruptcy'], price: 25000, cnt: [6, 12], ev: 0.95, cats: ['watches', 'bags', 'jewelry', 'perfume', 'clothing', 'sneakers'], q: 'new', fake: 2.6, eta: 600, d: ['Остатки люксового магазина. Говорят, владелец подмешивал реплики.', 'Залишки люксового магазину. Кажуть, власник підмішував репліки.', 'A luxury shop’s leftovers. Rumour has it the owner mixed in replicas.'] },
+  { id: 'estate', ic: '🏛', n: ['Наследство коллекционера', 'Спадок колекціонера', 'A collector’s estate'], price: 60000, cnt: [5, 10], ev: 0.96, cats: ['watches', 'art', 'antiques', 'jewelry', 'collectibles', 'cards', 'comics', 'instruments'], q: 'good', fake: 2.2, eta: 720, d: ['Родственники продают коллекцию не глядя. Среди подлинников бывают копии.', 'Родичі продають колекцію не дивлячись. Серед оригіналів бувають копії.', 'The heirs are selling the collection unseen. Copies hide among the originals.'] },
+];
+export const contState = () => { const s = G.s; s.conts ||= { own: [], w: -1 }; return s.conts; };
+const CONT_WIN = 360; // what's on offer changes every 6 game hours
+export function containerOffers() {
+  const s = G.s, w = Math.floor(s.t / CONT_WIN), city = s.player.city, cur = countryOf(city).cur;
+  const r = new RNG(`cont|${s.id}|${w}|${city}`);
+  return CONTAINERS.map((c) => {
+    const k = r.float(0.85, 1.2);
+    const cats = c.cats || CAT_LIST.filter((x) => !['cars', 'bikes'].includes(x));
+    return { id: `${c.id}_${w}`, def: c.id, price: nicePrice(c.price * k * (countryOf(city).price || 1), cur), k, hint: r.sample(cats, 2), seed: `${s.id}|${w}|${c.id}`, until: (w + 1) * CONT_WIN, sold: contState().own.some((o) => o.offer === `${c.id}_${w}`) };
+  });
+}
+export function buyContainer(offerId) {
+  const s = G.s, o = containerOffers().find((x) => x.id === offerId);
+  if (!o || o.sold) return { ok: false };
+  const c = CONTAINERS.find((x) => x.id === o.def);
+  if (!spend(o.price, 'buy', `${L(c.n)} · ${T('контейнер', 'контейнер', 'container')}`)) return { ok: false, msg: T('Не хватает денег', 'Не вистачає грошей', 'Not enough money') };
+  const own = { id: uid('cn'), offer: o.id, def: o.def, price: o.price, k: o.k, seed: o.seed, hint: o.hint, eta: s.t + c.eta, at: s.t };
+  contState().own.push(own);
+  stat('containers');
+  emit('conts');
+  return { ok: true, own };
+}
+// what's inside (rolled from the seed, so it's fixed the moment you pay)
+function containerItems(own) {
+  const s = G.s, c = CONTAINERS.find((x) => x.id === own.def);
+  const r = new RNG(`cnt|${own.seed}`);
+  const n = r.int(c.cnt[0], c.cnt[1]);
+  // what it looks like is ~35% above the price on average — replicas and hidden faults then eat most of that;
+  // mostly a bit under, sometimes a jackpot
+  const budget = own.price * c.ev * 1.36 * r.pick([0.45, 0.6, 0.75, 0.9, 1, 1.1, 1.3, 1.6, 2.6]);
+  const cats = c.cats || undefined;
+  const items = [];
+  let left = budget;
+  for (let i = 0; i < n; i++) {
+    const share = i === n - 1 ? left : left * r.float(0.08, 0.5);
+    const it = makeItem(r, { city: s.player.city, cats, quality: c.q === 'junk' ? (r.chance(0.7) ? 'junk' : 'any') : c.q === 'new' ? (r.chance(0.5) ? 'new' : 'good') : r.chance(0.5) ? c.q : 'any', maxVal: Math.max(15, share * 1.5), minVal: share * 0.25, lockRate: 0.12, fakeMult: 0 });
+    if (isVehicle(it)) { i--; if (items.length > 40) break; continue; }
+    hideFake(it, r, c.fake);
+    left = Math.max(budget * 0.03, left - itemValue({ ...it, fake: 0 }, s.player.city, 'true'));
+    items.push(it);
+  }
+  return items;
+}
+export const containerUnits = (own) => containerItems(own).reduce((a, it) => a + sizeUnits(it), 0);
+export function openContainer(cid) {
+  const s = G.s, st = contState(), own = st.own.find((x) => x.id === cid);
+  if (!own || own.opened) return { ok: false };
+  if (s.t < own.eta) return { ok: false, msg: T('Контейнер ещё в пути', 'Контейнер ще в дорозі', 'The container is still on its way') };
+  const items = containerItems(own);
+  const units = items.reduce((a, it) => a + sizeUnits(it), 0);
+  if (freeSpace() < units) return { ok: false, msg: T(`Нужно ${units} мест на складе (свободно ${Math.max(0, freeSpace())})`, `Потрібно ${units} місць на складі (вільно ${Math.max(0, freeSpace())})`, `Needs ${units} storage units (${Math.max(0, freeSpace())} free)`) };
+  const vals = items.map((it) => itemValue(it, s.player.city, 'known'));
+  const total = vals.reduce((a, b) => a + b, 0) || 1;
+  items.forEach((it, i) => addItem(it, own.price * vals[i] / total, 'container'));
+  own.opened = true; own.n = items.length; own.value = Math.round(total);
+  own.items = items.map((it, i) => ({ id: it.id, m: it.m, v: Math.round(vals[i]) }));
+  st.own = st.own.filter((x) => !x.opened || x === own).slice(-12);
+  stat('bought', items.length); stat('containersOpened'); addXP(15);
+  emit('conts'); emit('inv');
+  return { ok: true, items, total, own };
+}
+export function contTick() {
+  const s = G.s, st = s.conts;
+  if (!st?.own?.length) return;
+  for (const o of st.own) if (!o.opened && !o.told && s.t >= o.eta) { o.told = true; const c = CONTAINERS.find((x) => x.id === o.def); notify('shop', T('Контейнер приехал', 'Контейнер приїхав', 'Your container arrived'), `${c.ic} ${L(c.n)} — ${T('можно вскрывать', 'можна розкривати', 'ready to open')}`, { go: ['shop'] }); emit('conts'); }
+}
+
 // ---------------------------------------------------------------- mystery boxes
 export const BOXES = [
-  { id: 'basic', n: ['Базовый бокс', 'Базовий бокс', 'Basic box'], price: 12, ev: 0.8, cats: null, color: '#8a94a6', lvl: 1 },
-  { id: 'tech', n: ['Техно‑бокс', 'Техно‑бокс', 'Tech box'], price: 45, ev: 0.85, cats: ['phones', 'electronics', 'consoles', 'accessories'], color: '#4da3ff', lvl: 2 },
-  { id: 'kicks', n: ['Сникер‑бокс', 'Снікер‑бокс', 'Sneaker box'], price: 90, ev: 0.85, cats: ['sneakers', 'clothing'], color: '#ff8a3d', lvl: 2 },
-  { id: 'collector', n: ['Коллекционный бокс', 'Колекційний бокс', 'Collector box'], price: 150, ev: 0.85, cats: ['cards', 'comics', 'toys', 'collectibles'], color: '#ffcc33', lvl: 3 },
-  { id: 'lux', n: ['Люкс‑бокс', 'Люкс‑бокс', 'Luxury box'], price: 900, ev: 0.88, cats: ['watches', 'bags', 'jewelry', 'perfume'], color: '#c9a227', lvl: 5 },
-  { id: 'diamond', n: ['Бриллиантовый бокс', 'Діамантовий бокс', 'Diamond box'], price: 5000, ev: 0.9, cats: ['watches', 'bags', 'jewelry', 'art', 'cars', 'cards'], color: '#b07cff', lvl: 8 },
+  { id: 'basic', n: ['Базовый бокс', 'Базовий бокс', 'Basic box'], price: 12, ev: 0.88, cats: null, color: '#8a94a6', lvl: 1 },
+  { id: 'tech', n: ['Техно‑бокс', 'Техно‑бокс', 'Tech box'], price: 45, ev: 0.92, cats: ['phones', 'electronics', 'consoles', 'accessories'], color: '#4da3ff', lvl: 2 },
+  { id: 'kicks', n: ['Сникер‑бокс', 'Снікер‑бокс', 'Sneaker box'], price: 90, ev: 0.95, cats: ['sneakers', 'clothing'], color: '#ff8a3d', lvl: 2 },
+  { id: 'collector', n: ['Коллекционный бокс', 'Колекційний бокс', 'Collector box'], price: 150, ev: 0.92, cats: ['cards', 'comics', 'toys', 'collectibles'], color: '#ffcc33', lvl: 3 },
+  { id: 'lux', n: ['Люкс‑бокс', 'Люкс‑бокс', 'Luxury box'], price: 900, ev: 0.98, cats: ['watches', 'bags', 'jewelry', 'perfume'], color: '#c9a227', lvl: 5 },
+  { id: 'diamond', n: ['Бриллиантовый бокс', 'Діамантовий бокс', 'Diamond box'], price: 5000, ev: 1, cats: ['watches', 'bags', 'jewelry', 'art', 'cars', 'cards'], color: '#b07cff', lvl: 8 },
 ];
 // draw candidate prizes for the roulette strip; returns {prizes, winIndex}
 export function rollBox(box) {
@@ -193,6 +283,8 @@ export function rollBox(box) {
   const strip = [];
   for (let i = 0; i < 46; i++) strip.push(mk(rng.weighted(tiers, (t) => t.w * (t.lo > 2 ? 2.5 : 1))));
   const win = mk(rng.weighted(tiers, (t) => t.w));
+  // you can't check what's in a box before you pay: the better the prize looks, the likelier it's a replica
+  hideFake(win.it, rng, 1.8 + win.tier * 0.35);
   strip[40] = win;
   return { strip, win, winIndex: 40 };
 }
@@ -223,7 +315,7 @@ function makeLot(rng) {
   const dur = rng.int(90, 360);
   if (container) {
     const items = []; const k = rng.int(3, 8);
-    for (let i = 0; i < k; i++) { const it = makeItem(rng, { city: s.player.city, quality: rng.chance(0.6) ? 'junk' : 'any', maxVal: Math.max(400, maxValForLevel() / 3), rareBoost: 0.4 }); if (!isVehicle(it)) items.push(it); }
+    for (let i = 0; i < k; i++) { const it = makeItem(rng, { city: s.player.city, quality: rng.chance(0.6) ? 'junk' : 'any', maxVal: Math.max(400, maxValForLevel() / 3), rareBoost: 0.4, fakeMult: 2.4 }); if (!isVehicle(it)) items.push(it); }
     const val = items.reduce((a, it) => a + itemValue(it, s.player.city, 'true'), 0);
     const start = nicePrice(val * 0.15, countryOf(s.player.city).cur);
     return { id: uid('a'), container: true, items, hint: items.slice(0, 2).map((i) => i.cat), start, bid: start, bidder: null, mine: false, end: s.t + dur, done: false, max: bots(rng, val * rng.float(0.45, 0.95)), units: items.reduce((a, it) => a + sizeUnits(it), 0) };

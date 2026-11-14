@@ -180,6 +180,7 @@ export function chatCounter(c, price) {
     c.offer = price;
     c.msgs.push({ f: 'them', tx: L(rng.pick(ACCEPT)), t: s.t });
     c.st = 'agreed';
+    maybeRealLink(c);
   } else {
     c.patience -= 1;
     if (c.patience <= 0) return leave(c);
@@ -193,6 +194,7 @@ export function chatAccept(c) {
   c.msgs.push({ f: 'me', tx: T(`Согласен, продам за ${fmt(c.offer)}`, `Згоден, продам за ${fmt(c.offer)}`, `Deal, ${fmt(c.offer)} it is`), t: G.s.t });
   if (c.npc.trait === 'scammer') return scamFollowup(c);
   c.st = 'agreed';
+  maybeRealLink(c);
   emit('chats');
 }
 export function chatDecline(c) {
@@ -205,11 +207,87 @@ function leave(c) {
   c.st = 'closed';
   emit('chats');
 }
+// ---------------------------------------------------------------- links in the chat
+// Buyers send links: almost always phishing, but now and then an honest buyer really sends the platform's own
+// "safe deal" page. The only way to tell is the address: the real one is exactly <official domain>/… — fakes add
+// words, swap letters, hang the real name on another site (oliks.ua.pay-safe.top) or change the zone.
+const SITE = { RU: 'aviton.ru', UA: 'oliks.ua', BY: 'kufer.by', KZ: 'olix.kz', PL: 'olix.pl', DE: 'kleinboerse.de', FR: 'lebondeal.fr', IT: 'subitto.it', GB: 'gumbranch.co.uk', US: 'craigboard.com', JP: 'merkaru.jp', CN: 'xianyou.cn', AE: 'dubizzy.ae', TR: 'sahibim.com.tr', GE: 'mybazar.ge', TH: 'kaidii.co.th' };
+export const officialSite = (cityId = G.s.player.city) => SITE[countryOf(cityId).id] || 'oliks.ua';
+const SAFE_PATHS = ['safe', 'delivery', 'deal', 'pay'];
+export function realLink(rng) { return `${officialSite()}/${rng.pick(SAFE_PATHS)}/${rng.int(1000000, 9999999)}`; }
+export function fakeLink(rng) {
+  const site = officialSite(), dot = site.indexOf('.'), name = site.slice(0, dot), zone = site.slice(dot + 1);
+  const path = `${rng.pick(SAFE_PATHS)}/${rng.int(1000000, 9999999)}`;
+  if (rng.chance(0.25)) return rng.pick(SCAM_LINKS);
+  const swap = (w) => { const m = [['o', '0'], ['l', 'I'], ['i', 'l'], ['a', '@'], ['e', '3'], ['s', 'ss'], ['k', 'kk'], ['r', 'rr'], ['m', 'rn']].filter(([a]) => w.includes(a)); if (!m.length) return w + w.slice(-1); const [a, b] = rng.pick(m); return w.replace(a, b); };
+  const bad = rng.pick(['top', 'site', 'online', 'icu', 'click', 'link', 'shop', 'xyz', 'info', 'pro']);
+  const word = rng.pick(['pay', 'safe', 'delivery', 'dostavka', 'secure', 'verify', 'confirm', 'help', 'money']);
+  return rng.pick([
+    () => `${site}.${word}-${rng.pick(['deal', 'pay', 'check', 'form'])}.${bad}/${path}`, // the real name hung on someone else's site
+    () => `${name}-${zone.replace(/\./g, '-')}.${bad}/${path}`,
+    () => `${name}-${word}.${zone}/${path}`,
+    () => `${word}-${name}.${zone}/${path}`,
+    () => `${swap(name)}.${zone}/${path}`,
+    () => `${name}.${zone === 'com' ? 'net' : 'com'}/${path}`,
+    () => `${name}.${zone}-${word}.${bad}/${path}`,
+    () => `${name}${rng.pick(['24', '-ua', '-pay', 'pay', '-online'])}.${zone}/${path}`,
+  ])();
+}
 function scamFollowup(c) {
-  const sc = pickR(SCAMS);
-  const link = sc.k === 'link' ? pickR(SCAM_LINKS) : '';
-  c.scam = link || sc.k; c.scamKind = sc.k; c.st = 'scam';
+  const rng = new RNG(c.id + ':scam:' + Math.random());
+  // most scammers send a link now; the rest ask for a code, show a fake screenshot or "overpay"
+  const sc = rng.chance(0.62) ? rng.pick(SCAMS.filter((x) => x.k === 'link')) : rng.pick(SCAMS.filter((x) => x.k !== 'link'));
+  const link = sc.k === 'link' ? fakeLink(rng) : '';
+  c.scam = link || sc.k; c.scamKind = sc.k;
+  c.st = sc.k === 'link' ? 'link' : 'scam';
+  if (link) c.link = link;
   c.msgs.push({ f: 'them', tx: fill(L(sc.tx), { link, extra: fmt(Math.max(10, c.offer * 0.3)) }), t: G.s.t, link: link || undefined });
+  emit('chats');
+}
+// an honest buyer who agreed sometimes pays through the platform and sends the real "safe deal" page
+const REAL_LINK_P = 0.012;
+function maybeRealLink(c) {
+  const it = getItem(c.itemId);
+  if (!it || c.npc.trait === 'scammer' || c.linkTried) return false;
+  c.linkTried = true;
+  if (Math.random() >= REAL_LINK_P) return false;
+  const rng = new RNG(c.id + ':real:' + Math.random());
+  const link = realLink(rng);
+  const sc = rng.pick(SCAMS.filter((x) => x.real));
+  c.st = 'link'; c.link = link; c.linkReal = true; c.scamKind = 'link';
+  c.msgs.push({ f: 'them', tx: fill(L(sc.tx), { link }), t: G.s.t, link });
+  return true;
+}
+// you open the link: the real page confirms the deal (paid through the platform, no fake claims); a fake one
+// takes money off your card
+export function linkOpen(c) {
+  if (!c.linkReal) return { real: false, loss: scamClick(c) };
+  c.safeDeal = true; c.st = 'agreed';
+  c.msgs.push({ f: 'sys', tx: T(`✅ Открылась страница ${officialSite()}: «Безопасная сделка» настоящая, деньги покупателя заморожены у площадки. Можно отправлять — оплата придёт после получения, а спор без причины покупатель открыть не сможет.`, `✅ Відкрилася сторінка ${officialSite()}: «Безпечна угода» справжня, гроші покупця заморожені в майданчика. Можна відправляти — оплата прийде після отримання, а спір без причини покупець відкрити не зможе.`, `✅ ${officialSite()} opened: the safe deal is real, the buyer’s money is held by the platform. Ship it — you’re paid on delivery, and the buyer can’t open a dispute for nothing.`), t: G.s.t });
+  stat('realLinks');
+  emit('chats');
+  return { real: true };
+}
+// "it's a scam": right — support bans them (bonus later); wrong — the honest buyer is offended and leaves
+export function linkReport(c) {
+  if (!c.linkReal) return scamReport(c), { real: false };
+  c.msgs.push({ f: 'me', tx: T('Это развод. Пожаловался в поддержку.', 'Це розвод. Поскаржився в підтримку.', 'That’s a scam. Reported.'), t: G.s.t });
+  c.msgs.push({ f: 'them', tx: T(`Какой развод?! Это обычная доставка ${PLATFORMS.classifieds.n(countryOf(G.s.player.city))}, посмотрите адрес. Всё, передумал.`, `Який розвод?! Це звичайна доставка ${PLATFORMS.classifieds.n(countryOf(G.s.player.city))}, подивіться адресу. Все, передумав.`, `What scam?! It’s the platform’s normal delivery — look at the address. Forget it.`), t: G.s.t });
+  c.msgs.push({ f: 'sys', tx: T(`Поддержка: ссылка официальная (${officialSite()}), жалоба отклонена.`, `Підтримка: посилання офіційне (${officialSite()}), скаргу відхилено.`, `Support: the link is official (${officialSite()}), report rejected.`), t: G.s.t });
+  c.st = 'closed';
+  emit('chats');
+  return { real: true };
+}
+// don't open it, ask for the usual delivery: an honest buyer shrugs and goes on, a scammer vanishes
+export function linkIgnore(c) {
+  c.msgs.push({ f: 'me', tx: T('По ссылкам не перехожу. Давайте обычной отправкой или встретимся.', 'За посиланнями не переходжу. Давайте звичайною відправкою або зустрінемось.', 'I don’t open links. Let’s do normal shipping or meet up.'), t: G.s.t });
+  if (c.linkReal) {
+    c.msgs.push({ f: 'them', tx: T('Ну ладно, как скажете. Давайте обычно.', 'Ну гаразд, як скажете. Давайте звичайно.', 'Fine, have it your way. The usual way then.'), t: G.s.t });
+    c.st = 'agreed';
+  } else {
+    c.msgs.push({ f: 'sys', tx: T('Покупатель перестал отвечать и удалил аккаунт.', 'Покупець перестав відповідати й видалив акаунт.', 'The buyer went quiet and deleted the account.'), t: G.s.t });
+    c.st = 'closed'; stat('scamsDodged');
+  }
   emit('chats');
 }
 export function scamClick(c) {
@@ -269,7 +347,7 @@ export function completeSale(c, mode = 'ship', packed = 0.5) {
   if (it.fake && !(disclose && it.fakeKnown) && !told.has('fake')) fakeClaim = lied.has('fake') ? 0.95 : it.fake === 2 ? 0.45 : 0.85;
   if (it.lock && !disclose) claimP = Math.max(claimP, 0.9);
   // some buyers try to get money back for nothing
-  const bogus = !claimP && !fakeClaim && ['angry', 'greedy', 'scammer'].includes(c.npc.trait) ? 0.1 : 0;
+  const bogus = !c.safeDeal && !claimP && !fakeClaim && ['angry', 'greedy', 'scammer'].includes(c.npc.trait) ? 0.1 : 0;
   const sale = { id: uid('S'), itemSnap: it, title: itemTitle(it), price, fee, payout, paid: it.paid || 0, buyer: c.npc, claimP, fakeClaim, bogus, chatId: c.id, packed, lies: c.lies || [], told: [...told], trust: c.trust || 0, at: s.t };
   if (mode === 'meet' && (it.loc || city) === city) {
     finishSale(sale, true);

@@ -4,13 +4,14 @@ import { T, L, clockDur } from '../core/i18n.js';
 import { esc, clamp } from '../core/util.js';
 import { CATS, CAT_LIST } from '../data/catalog.js';
 import { fmt, nicePrice } from '../core/money.js';
+import { countryOf } from '../data/world.js';
 import { icon } from '../ui/icons.js';
 import { go, rerender, toast, askPrice, choose, confirmBox, openApp, ago, UI, replace, sheet, resolveSheet } from '../ui/shell.js';
 import { img, tile, tags, specs, defectList, empty, avatar, stars, gallery } from '../ui/comp.js';
 import { listingViews } from '../data/views.js';
 import { hashStr } from '../core/rng.js';
 import { feedFor, feedTimeLeft, findListing, isBelowMarket, marketEstimate, listingDesc, openBuyChat, sellerRespond, DISTRICTS, pickupInfo } from '../game/market.js';
-import { chatGreet, chatPersuade, chatCounter, chatAccept, chatDecline, chatAnswer, completeSale, scamClick, scamReport, resolveClaim, myListing, unlist, PLATFORMS } from '../game/sell.js';
+import { chatGreet, chatPersuade, chatCounter, chatAccept, chatDecline, chatAnswer, completeSale, scamClick, scamReport, linkOpen, linkReport, linkIgnore, officialSite, resolveClaim, myListing, unlist, PLATFORMS } from '../game/sell.js';
 import { answerOptions, sellerTopics, sellerAnswer } from '../game/talk.js';
 import { TYPES, isBanned, banLeft, appealReview, appealBan, askQuestion, sellerDisputeInfo, disputeSeller, BAN_STRIKES, openTickets } from '../game/support.js';
 import { RNG } from '../core/rng.js';
@@ -112,6 +113,12 @@ function chatView(p) {
   } else if (c.kind === 'sell' && c.st === 'agreed') {
     opts += O('ship', `📦 ${T('Упаковать и отправить', 'Запакувати й відправити', 'Pack & ship')}`, 'solid');
     if (it && (it.loc || G.s.player.city) === G.s.player.city) opts += O('meet', `🤝 ${T('Встретиться лично (деньги сразу)', 'Зустрітися особисто (гроші одразу)', 'Meet in person (cash now)')}`);
+  } else if (c.st === 'link') {
+    const site = officialSite(), app = PLATFORMS.classifieds.n(countryOf(G.s.player.city));
+    opts += `<div class="link-hint">🔎 ${T(`Настоящие ссылки ${esc(app)} — только <b>${site}/…</b>: сразу после «${site}» идёт «/». Лишние слова, другая зона, буквы‑двойники (0 вместо o, I вместо l) или «${site}.что‑то‑ещё» — развод. Но иногда покупатели и правда присылают настоящую «Безопасную сделку».`, `Справжні посилання ${esc(app)} — лише <b>${site}/…</b>: одразу після «${site}» йде «/». Зайві слова, інша зона, літери‑двійники (0 замість o, I замість l) чи «${site}.щось‑ще» — розвод. Але іноді покупці й справді надсилають справжню «Безпечну угоду».`, `Real ${esc(app)} links are only <b>${site}/…</b>: a “/” right after “${site}”. Extra words, another zone, look‑alike letters (0 for o, I for l) or “${site}.something‑else” mean a scam. But now and then a buyer really sends the genuine safe‑deal page.`)}</div>`;
+    opts += O('linkopen', T('🔗 Перейти по ссылке', '🔗 Перейти за посиланням', '🔗 Open the link'));
+    opts += O('linkreport', `🛡 ${T('Это развод — пожаловаться', 'Це розвод — поскаржитися', 'It’s a scam — report')}`);
+    opts += O('linkignore', `✋ ${T('Не открывать — обычная отправка или встреча', 'Не відкривати — звичайна відправка чи зустріч', 'Don’t open — normal shipping or meeting')}`);
   } else if (c.st === 'scam') {
     const SCL = { link: T('🔗 Перейти по ссылке', '🔗 Перейти за посиланням', '🔗 Open the link'), code: T('🔢 Отправить код из СМС', '🔢 Надіслати код з СМС', '🔢 Send the SMS code'), shot: T('📦 Поверить скрину и отправить', '📦 Повірити скріну й відправити', '📦 Trust the screenshot and ship'), over: T('💸 Вернуть «лишнее»', '💸 Повернути «зайве»', '💸 Send back the “extra”') };
     opts += O('scamclick', SCL[c.scamKind] || SCL.link, 'red');
@@ -286,6 +293,9 @@ export default {
     },
     scamclick: (id) => { const loss = scamClick(chat(id)); toast(`−${fmt(loss)}`, 'r'); sfx('lose'); rerender(); },
     scamreport: (id) => { scamReport(chat(id)); sfx('win'); rerender(); },
+    linkopen: (id) => { const r = linkOpen(chat(id)); if (r.real) { toast(T('Настоящая «Безопасная сделка» ✅', 'Справжня «Безпечна угода» ✅', 'A genuine safe deal ✅'), 'g'); sfx('win'); } else { toast(`−${fmt(r.loss)}`, 'r'); sfx('lose'); } rerender(); },
+    linkreport: (id) => { const r = linkReport(chat(id)); if (r.real) { toast(T('Ссылка была настоящей — покупатель ушёл', 'Посилання було справжнім — покупець пішов', 'The link was real — the buyer left'), 'r'); sfx('lose'); } else sfx('win'); rerender(); },
+    linkignore: (id) => { linkIgnore(chat(id)); rerender(); },
     refund: (id) => { resolveClaim(chat(id), 'refund'); rerender(); },
     partial: (id) => { resolveClaim(chat(id), 'partial'); rerender(); },
     refuse: async (id) => { if (await confirmBox(T('Отказать в возврате?', 'Відмовити в поверненні?', 'Refuse the refund?'), T('Покупатель оставит плохой отзыв, а за подделки может прийти штраф.', 'Покупець залишить поганий відгук, а за підробки може бути штраф.', 'Expect a bad review; fakes can bring fines.'), T('Отказать', 'Відмовити', 'Refuse'), undefined, true)) { resolveClaim(chat(id), 'refuse'); rerender(); } },

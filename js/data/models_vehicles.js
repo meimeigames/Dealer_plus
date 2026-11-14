@@ -24,7 +24,7 @@ export function buildVehicles(add) {
     ['Грантта', 9000, 2011, 2026, 'sedan', { colors: CW, engine: ['1.6'], trans: ['MT', 'AT'], hp: 90 }],
     ['Вестта', 13000, 2015, 2026, 'sedan', { colors: [...CW, 'c_orange'], engine: ['1.6', '1.8'], trans: ['MT', 'CVT'], hp: 106 }],
     ['Нива Легенда', 10000, 1977, 2026, 'jeep', { colors: [...OLD, 'c_khaki'], engine: ['1.7'], trans: ['MT'], drive: '4WD', hp: 83, art: { lights: 'round' } }],
-  ], { tier: 'cheap', floor: 0.18 });
+  ], { tier: 'cheap', floor: 0.27 });
   car('Волго', [
     ['ГАЗ‑21', 5000, 1956, 1970, 'classic', { colors: ['c_black', 'c_sky', 'c_beige', 'c_white', 'c_green'], engine: ['2.4'], trans: ['MT'], drive: 'RWD', hp: 75, retro: 20, hype: 2.4, rare: 1, art: { lights: 'round', chrome: true } }],
     ['ГАЗ‑24', 6000, 1970, 1992, 'classic', { colors: ['c_black', 'c_white', 'c_beige', 'c_sky'], engine: ['2.4'], trans: ['MT'], drive: 'RWD', hp: 95, retro: 25, hype: 1.5, art: { lights: 'round2', chrome: true } }],
@@ -107,7 +107,7 @@ export function buildVehicles(add) {
     ['Chaserr JZX100', 32000, 1996, 2001, 'sedan', { colors: ['c_white', 'c_silver', 'c_black'], engine: ['2.5'], trans: ['MT'], drive: 'RWD', hp: 280, retro: 20, hype: 2 }],
     ['Hilox', 35000, 2015, 2026, 'pickup', { colors: CW, engine: ['2.8d'], trans: ['MT', 'AT'], drive: '4WD', hp: 177, dep: 0.07 }],
     ['Prius', 25000, 2009, 2022, 'hatch', { colors: CW, engine: ['1.8h'], trans: ['CVT'], hp: 122 }],
-  ], { tier: 'mid', dep: 0.09, floor: 0.12 });
+  ], { tier: 'mid', dep: 0.09, floor: 0.18 });
   car('Nissen', [
     ['Skylane GT‑R R34', 60000, 1999, 2002, 'coupe', { colors: ['c_blue', 'c_silver', 'c_black', 'c_white'], engine: ['2.6'], trans: ['MT'], drive: 'AWD', hp: 280, retro: 20, hype: 6, rare: 3, art: { spoiler: true, lights: 'round2' } }],
     ['GT‑R R35', 100000, 2008, 2024, 'coupe', { colors: [...SPORT, 'c_silver'], engine: ['3.8'], trans: ['AT'], drive: 'AWD', hp: 565, art: { spoiler: true } }],

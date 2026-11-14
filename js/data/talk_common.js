@@ -222,9 +222,9 @@ export const MY_LOGISTICS = [
 
 // scam scripts: each one ends with a link or a request
 export const SCAMS = [
-  { k: 'link', tx: ['Я оплатил! Подтвердите получение денег по ссылке: {link}', 'Я оплатив! Підтвердіть отримання грошей за посиланням: {link}', 'Paid! Confirm the payment here: {link}'] },
-  { k: 'link', tx: ['Оформил «Безопасную сделку». Чтобы получить деньги, введите данные карты: {link}', 'Оформив «Безпечну угоду». Щоб отримати гроші, введіть дані картки: {link}', 'Set up a “Safe deal”. Enter your card to receive the money: {link}'] },
-  { k: 'link', tx: ['Курьер уже едет! Заполните форму доставки: {link}', 'Курʼєр уже їде! Заповніть форму доставки: {link}', 'Courier is on the way! Fill in the delivery form: {link}'] },
+  { k: 'link', real: 1, tx: ['Я оплатил! Подтвердите получение денег по ссылке: {link}', 'Я оплатив! Підтвердіть отримання грошей за посиланням: {link}', 'Paid! Confirm the payment here: {link}'] },
+  { k: 'link', real: 1, tx: ['Оформил «Безопасную сделку». Чтобы получить деньги, введите данные карты: {link}', 'Оформив «Безпечну угоду». Щоб отримати гроші, введіть дані картки: {link}', 'Set up a “Safe deal”. Enter your card to receive the money: {link}'] },
+  { k: 'link', real: 1, tx: ['Курьер уже едет! Заполните форму доставки: {link}', 'Курʼєр уже їде! Заповніть форму доставки: {link}', 'Courier is on the way! Fill in the delivery form: {link}'] },
   { k: 'link', tx: ['Деньги зависли в системе. Служба поддержки просит подтвердить: {link}', 'Гроші зависли в системі. Служба підтримки просить підтвердити: {link}', 'The payment is stuck. Support asks you to confirm: {link}'] },
   { k: 'link', tx: ['Скинул вам предоплату с запасом 😊 Заберите по ссылке: {link}', 'Скинув вам передоплату із запасом 😊 Заберіть за посиланням: {link}', 'Sent a prepayment with extra 😊 Claim it: {link}'] },
   { k: 'code', tx: ['Пришлите код из СМС, это для подтверждения перевода.', 'Надішліть код з СМС, це для підтвердження переказу.', 'Send me the SMS code, it’s to confirm the transfer.'] },
@@ -233,6 +233,8 @@ export const SCAMS = [
   { k: 'shot', tx: ['Вот скрин перевода ✅ Отправляйте, деньги дойдут в течение суток.', 'Ось скрін переказу ✅ Відправляйте, гроші дійдуть протягом доби.', 'Here’s the transfer screenshot ✅ Ship it, money lands within a day.'] },
   { k: 'shot', tx: ['Банк задерживает, но вот чек об оплате. Отправите сегодня?', 'Банк затримує, але ось чек про оплату. Відправите сьогодні?', 'The bank is slow, but here’s the receipt. Ship today?'] },
   { k: 'over', tx: ['Ой, перевёл на {extra} больше. Верните разницу на эту карту, пожалуйста.', 'Ой, переказав на {extra} більше. Поверніть різницю на цю картку, будь ласка.', 'Oops, sent {extra} too much. Please refund the difference to this card.'] },
+  { k: 'link', real: 1, tx: ['Оформил доставку через площадку, оплата уже списана. Подтвердите отправку: {link}', 'Оформив доставку через майданчик, оплату вже списано. Підтвердіть відправлення: {link}', 'Booked delivery through the platform, payment is taken. Confirm the shipment: {link}'] },
+  { k: 'link', real: 1, tx: ['Нажал «Купить с доставкой». Вам должна прийти ссылка, вот она: {link}', 'Натиснув «Купити з доставкою». Вам має прийти посилання, ось воно: {link}', 'Hit “Buy with delivery”. You should get a link, here it is: {link}'] },
   { k: 'link', tx: ['Давайте перейдём в мессенджер, там удобнее: {link}', 'Давайте перейдемо в месенджер, там зручніше: {link}', 'Let’s move to a messenger, easier there: {link}'] },
 ];
 export const SCAM_LINKS = ['dostavka-pay.top/confirm', 'olx-safe.site/pay', 'avito-dostavka.icu/money', 'secure-deliv.xyz/card', 'nova-p0shta.pay/claim', 'safe-deal-pay.online/get', 'cdek-dostavka.link/form', 'pay-verify.click/card', 'marketplace-help.site/refund'];

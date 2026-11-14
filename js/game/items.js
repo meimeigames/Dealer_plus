@@ -18,7 +18,9 @@ const W_CACHE = {};
 function modelWeights(cat) {
   if (W_CACHE[cat]) return W_CACHE[cat];
   const list = BY_CAT[cat] || [];
-  const w = list.map((m) => Math.pow(modelValue(m), -0.5) * Math.pow(0.32, m.rare || 0) * (m.tier === 'cheap' ? 1.6 : 1) * (m.nogen ? 0 : 1));
+  // cars: the market is mostly 5–20-year-old mainstream cars, not only rusty Ladas
+  const ex = cat === 'cars' ? -0.34 : -0.5, cheapW = cat === 'cars' ? 1.25 : 1.6;
+  const w = list.map((m) => Math.pow(modelValue(m), ex) * Math.pow(0.32, m.rare || 0) * (m.tier === 'cheap' ? cheapW : 1) * (m.nogen ? 0 : 1));
   return (W_CACHE[cat] = { list, w });
 }
 export function pickModel(rng, { cat, maxVal = Infinity, minVal = 0, cats } = {}) {
@@ -247,11 +249,11 @@ export function itemValue(it, cityId, mode = 'true', opts = {}) {
     const g = GRADE_MULT[it.grade] || [1, 1];
     v *= m.year < 2010 ? g[1] : g[0];
   } else if (it.cat === 'cars') {
-    v *= 0.52 + 0.48 * Math.pow(it.cond / 100, 1.2); // a tired body costs a paint job, not half the car
+    v *= 0.62 + 0.38 * Math.pow(it.cond / 100, 1.15); // a tired body costs a paint job, not half the car
   } else {
     v *= 0.32 + 0.68 * Math.pow(it.cond / 100, 1.35);
   }
-  if (it.cat === 'cars') v *= clamp(1.1 - it.km / 750000, 0.72, 1.1) * (it.owners > 3 ? 0.95 : 1);
+  if (it.cat === 'cars') v *= clamp(1.12 - it.km / 900000, 0.8, 1.12) * (it.owners > 3 ? 0.96 : 1);
   // defects
   let dm = 1;
   for (const d of it.defects) {

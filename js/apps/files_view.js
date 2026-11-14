@@ -15,6 +15,7 @@ import {
   runExe, payRansom, decrypted, pinResult, passResult, passReady, KIND_NAME, resetWord,
 } from '../game/files.js';
 import { runOnPc } from '../game/pcvirus.js';
+import { lootButtons, lootAct, lootIcon } from '../game/files_extra.js';
 
 const walletCtx = { id: null, fid: null };
 const ICON = { photo: '🖼', video: '🎞', text: '📝', doc: '📄', music: '🎵', audio: '🎙', exe: '⚙️', wallet: '👛', game: '🎮', save: '💾', archive: '🗜', contact: '👥' };
@@ -56,7 +57,7 @@ export function filesView(p) {
     <button class="btn block mt" data-a="fransom" data-v="${it.id}">💸 ${T('Заплатить', 'Заплатити', 'Pay')} ${fmt(f.finds.virus?.ransom || 0)}</button><button class="btn dark block mt" data-a="fdecrypt" data-v="${it.id}">🧩 ${T('Подобрать ключ расшифровки', 'Підібрати ключ розшифрування', 'Crack the decryption key')}</button>${wipeBtn}`;
   let h = head;
   if (f.personal && !d.wiped) h += `<div class="card warn small">⚠️ ${T('Здесь чужие личные данные. Сотрите их перед продажей — иначе покупатель может пожаловаться, а за утечку бывают штрафы.', 'Тут чужі особисті дані. Зітріть їх перед продажем — інакше покупець може поскаржитися, а за витік бувають штрафи.', 'Someone’s personal data is on here. Wipe it before selling — buyers complain and leaks get fined.')}</div>`;
-  h += f.dirs.map((dd) => `<div class="fv-dir">📁 ${esc(dd.name || '/')}</div>${dd.files.map((x) => `<div class="fv-file ${x.bad ? 'bad' : ''}" data-a="fopen" data-v="${it.id}|${x.id}"><span class="fv-fi">${ICON[x.type] || '📄'}</span><div class="grow"><b>${esc(x.name)}</b><small>${[size(x.size), x.dur, x.date].filter(Boolean).join(' · ')}${x.bad ? ' · ⚠ ' + T('повреждён', 'пошкоджено', 'corrupted') : ''}</small></div>${x.flag && d['seen_' + x.flag] ? '<span class="fv-star">★</span>' : ''}</div>`).join('')}`).join('');
+  h += f.dirs.map((dd) => `<div class="fv-dir">📁 ${esc(dd.name || '/')}</div>${dd.files.map((x) => `<div class="fv-file ${x.bad ? 'bad' : ''}" data-a="fopen" data-v="${it.id}|${x.id}"><span class="fv-fi">${x.flag?.startsWith('loot:') ? lootIcon(x.flag.slice(5)) : ICON[x.type] || '📄'}</span><div class="grow"><b>${esc(x.name)}</b><small>${[size(x.size), x.dur, x.date].filter(Boolean).join(' · ')}${x.bad ? ' · ⚠ ' + T('повреждён', 'пошкоджено', 'corrupted') : ''}</small></div>${x.flag && d['seen_' + x.flag] ? '<span class="fv-star">★</span>' : ''}</div>`).join('')}`).join('');
   h += wipeBtn;
   return h;
 }
@@ -67,8 +68,13 @@ function ask(html, buttons) {
 }
 function filePreview(it, x) {
   const f = deviceFiles(it), d = it.data || {};
-  const top = `<h2 class="fv-title">${ICON[x.type] || '📄'} ${esc(x.name)}</h2>`;
+  const top = `<h2 class="fv-title">${x.flag?.startsWith('loot:') ? lootIcon(x.flag.slice(5)) : ICON[x.type] || '📄'} ${esc(x.name)}</h2>`;
   if (x.bad) return [`${top}<div class="fv-glitch">⚠ ${T('Не удалось прочитать файл: CRC error', 'Не вдалося прочитати файл: CRC error', 'Couldn’t read the file: CRC error')}</div>`, [['x', T('Закрыть', 'Закрити', 'Close'), 'dark']]];
+  if (x.flag?.startsWith('loot:')) {
+    const key = x.flag.slice(5), lb = lootButtons(it, key, f);
+    const btns = lb.done ? [['x0', `✔ ${T('Уже разобрались с этим', 'Уже розібралися з цим', 'Already dealt with')}`, 'dark']] : lb.btn;
+    return [`${top}<div class="fv-loot"><span>${lootIcon(key)}</span><b>${esc(x.name)}</b></div>${x.text ? `<pre class="fv-text">${esc(x.text)}</pre>` : ''}<p class="small m">${[size(x.size), x.date].filter(Boolean).join(' · ')}</p>`, [...btns, ['x', T('Закрыть', 'Закрити', 'Close'), 'dark']]];
+  }
   if (x.type === 'photo') {
     const pic = x.img ? `<img class="fv-img" src="${esc(x.img)}" alt="">` : x.scene ? sceneCard(x.scene, true) : sceneCard(['🖼', 'Фото', 'Фото', 'Photo'], true);
     const owner = x.flag === 'owner' && f.finds.owner && !d.owner;
@@ -127,6 +133,7 @@ export const filesActions = {
     }
     if (r === 'police' || r === 'dashsell') { const got = dashAction(it, r === 'police' ? 'police' : 'sell'); if (got) { sfx('cash'); toast(`+${fmt(got)}`, 'g'); } }
     if (r === 'corpback' || r === 'corpsell') { const res = corpAction(it, r === 'corpback' ? 'return' : 'sell'); if (res?.caught) { sfx('err'); toast(T(`Это была проверка полиции. Штраф ${fmt(res.fine)}`, `Це була перевірка поліції. Штраф ${fmt(res.fine)}`, `It was a police sting. Fine ${fmt(res.fine)}`), 'r'); } else if (res?.got) { sfx('cash'); toast(`+${fmt(res.got)}`, 'g'); } }
+    if (r?.startsWith('loot:')) { const [, key, a] = r.split(':'); const res = lootAct(it, f, key, a); if (res) { sfx(res.cls === 'g' ? 'cash' : res.cls === 'r' ? 'err' : 'tap'); toast(res.msg, res.cls); } }
     if (r === 'rare') { const got = rareSell(it); if (got) { sfx('cash'); toast(`+${fmt(got)}`, 'g'); } }
     rerender();
   },

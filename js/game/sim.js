@@ -8,7 +8,7 @@ import { marketTick, feedFor } from './market.js';
 import { sellTick, feedbackTick, finishSale } from './sell.js';
 import { supportTick } from './support.js';
 import { phoneTick } from './phone.js';
-import { auctionTick, ownAuctionTick } from './sources.js';
+import { auctionTick, ownAuctionTick, contTick } from './sources.js';
 import { workshopTick } from './workshop.js';
 import { jobsTick } from './jobs.js';
 import { travelTick } from './travel.js';
@@ -144,6 +144,7 @@ export function tick(fast = false) {
   workshopTick();
   auctionTick();
   ownAuctionTick();
+  contTick();
   jobsTick();
   travelTick();
   bankTick();

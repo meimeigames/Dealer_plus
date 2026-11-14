@@ -270,7 +270,7 @@ export function openBox(oid) {
     const it = boxItem(new RNG(`boxi|${o.id}|${k}`), m);
     // the usual surprises of cheap wholesale, rarely
     if (R.chance(0.05)) { it.sealed = false; it.cond = Math.min(it.cond, R.int(82, 92)); it.defects.push({ c: R.pick(PHONE_FIX), x: 0.5, y: 0.5, view: 'front', known: false }); }
-    if (R.chance(0.012)) it.fake = 2;
+    if (R.chance(0.045)) it.fake = 2; // a box is bought blind — clones slip in more often than in a lot you checked
     if (m.brand !== 'Pear' && R.chance(0.03)) it.defects.push({ c: 'cnrom', x: 0.5, y: 0.5, view: 'front', known: false });
     got.push({ it, t: t.k, val: itemValue({ ...it, fake: 0 }, o.to, 'true') });
   }
@@ -306,7 +306,7 @@ export const lotTotal = (lot, qty = lotQty(lot)) => Math.round(unitFor(lot, qty)
 // rough odds that something goes wrong with this lot (for the card): grows with size, falls with the rating
 export function lotOdds(lot, qty = lotQty(lot)) {
   const f = qty / 100, bad = clamp((4.9 - lot.rating) / 1.3, 0, 1);
-  return { short: 0.015 + 0.02 * f + 0.02 * bad, resort: 0.01 + 0.02 * f + 0.015 * bad, opened: 0.01 + 0.015 * f + 0.01 * bad, clones: 0.008 + 0.012 * f + 0.03 * bad, cn: 0.01 + 0.012 * f + 0.01 * bad, dud: 0.03 + 0.03 * bad };
+  return { short: 0.015 + 0.02 * f + 0.02 * bad, resort: 0.01 + 0.02 * f + 0.015 * bad, opened: 0.01 + 0.015 * f + 0.01 * bad, clones: 0.02 + 0.03 * f + 0.05 * bad, cn: 0.01 + 0.012 * f + 0.01 * bad, dud: 0.03 + 0.03 * bad };
 }
 export function lotRisk(lot, qty = lotQty(lot)) {
   const o = lotOdds(lot, qty);

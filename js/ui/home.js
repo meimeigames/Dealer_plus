@@ -76,6 +76,7 @@ export const widgetAvailable = (k) => !WIDGETS[k].app || isInstalled(WIDGETS[k].
 // s.home.lay = { pages: [[key…]…], dock: [appId…] }, key = 'a:<appId>' | 'w:<widgetId>'
 const DOCK_PREF = ['market', 'bank', 'inventory', 'jobs', 'map', 'appstore', 'profile', 'settings'];
 const CAP = ROWS * COLS;
+export const MAX_PAGES = 5;
 const cellsOf = (key) => { if (key.startsWith('a:')) return 1; const w = G.s.home.widgets.find((x) => 'w:' + x.id === key); return w ? CELLS[w.size] : 0; };
 const validApp = (id) => !!UI.apps[id] && !UI.apps[id].hidden && isInstalled(id);
 export function syncLayout() {
@@ -106,8 +107,18 @@ export function syncLayout() {
     L2.pages[i] = keep;
     if (spill.length) (L2.pages[i + 1] ||= []).unshift(...spill);
   }
-  while (L2.pages.length > 1 && !L2.pages[L2.pages.length - 1].length && HOME.page < L2.pages.length - 1) L2.pages.pop();
-  if (!L2.pages.length) L2.pages.push([]);
+  if (HOME.edit) {
+    // while you arrange the screen there are always five pages to drop things on
+    while (L2.pages.length < MAX_PAGES) L2.pages.push([]);
+  } else {
+    // done arranging: empty pages go away (the page you're looking at keeps its place)
+    const cur = L2.pages[HOME.page];
+    L2.pages = L2.pages.filter((pg) => pg.length);
+    if (!L2.pages.length) L2.pages.push([]);
+    const at = cur ? L2.pages.indexOf(cur) : -1;
+    const np = at >= 0 ? at : Math.min(HOME.page, L2.pages.length - 1);
+    if (np !== HOME.page) { HOME.page = np; requestAnimationFrame(() => { const h2 = $('#home'); if (h2) h2.scrollLeft = np * h2.clientWidth; }); }
+  }
   return L2;
 }
 export const dockApps = () => (G.s?.home?.lay ? G.s.home.lay.dock : DOCK_PREF.filter((id) => isInstalled(id) && UI.apps[id]).slice(0, 4));
@@ -133,22 +144,82 @@ export const WALLS = {
   mono: { n: ['Чёрный', 'Чорний', 'Black'], css: '#000' },
   space: { n: ['Космос', 'Космос', 'Space'], css: 'radial-gradient(1px 1px at 20% 30%, #fff, transparent), radial-gradient(1px 1px at 70% 20%, #fff, transparent), radial-gradient(1.5px 1.5px at 40% 70%, #fff, transparent), radial-gradient(1px 1px at 85% 60%, #fff, transparent), radial-gradient(1px 1px at 10% 85%, #fff, transparent), radial-gradient(600px 400px at 70% 80%, rgba(120,60,255,.45), transparent 60%), linear-gradient(180deg, #02030a, #0a0820)' },
   mint: { n: ['Мята', 'Мʼята', 'Mint'], css: 'linear-gradient(160deg, #b8f5e0, #5fd3b3 50%, #1f8f7a)' },
-  p_city: { n: ['Ночной город', 'Нічне місто', 'City at night'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/city.jpg) center / cover no-repeat' },
-  p_mountains: { n: ['Горное озеро', 'Гірське озеро', 'Mountain lake'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/mountains.jpg) center / cover no-repeat' },
-  p_tokyo: { n: ['Неоновая улица', 'Неонова вулиця', 'Neon street'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/tokyo.jpg) center / cover no-repeat' },
-  p_waves: { n: ['Океан сверху', 'Океан згори', 'Ocean from above'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/waves.jpg) center / cover no-repeat' },
-  p_fog: { n: ['Туманный лес', 'Туманний ліс', 'Foggy forest'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/fog.jpg) center / cover no-repeat' },
-  p_dunes: { n: ['Пустыня', 'Пустеля', 'Desert'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/dunes.jpg) center / cover no-repeat' },
-  p_aurora2: { n: ['Сияние в горах', 'Сяйво в горах', 'Aurora peaks'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/aurora2.jpg) center / cover no-repeat' },
-  p_liquid: { n: ['Жидкое стекло', 'Рідке скло', 'Liquid glass'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/liquid.jpg) center / cover no-repeat' },
+  lava: { n: ['Лава', 'Лава', 'Lava'], css: 'radial-gradient(500px 400px at 80% 15%, rgba(255,196,0,.55), transparent 60%), linear-gradient(165deg, #ff512f 0%, #dd2476 55%, #3a0b2e 100%)' },
+  grape: { n: ['Виноград', 'Виноград', 'Grape'], css: 'radial-gradient(520px 420px at 15% 20%, rgba(255,120,220,.45), transparent 60%), linear-gradient(160deg, #41295a, #2f0743)' },
+  peach: { n: ['Персик', 'Персик', 'Peach'], css: 'linear-gradient(165deg, #ffecd2 0%, #fcb69f 55%, #ff8a80 100%)' },
+  emerald: { n: ['Изумруд', 'Смарагд', 'Emerald'], css: 'radial-gradient(520px 420px at 80% 10%, rgba(120,255,214,.4), transparent 60%), linear-gradient(170deg, #0f3d3e, #0a2a2b 60%, #041414)' },
+  midnight: { n: ['Полночь', 'Північ', 'Midnight'], css: 'radial-gradient(600px 420px at 50% 0%, rgba(86,120,255,.4), transparent 65%), linear-gradient(180deg, #0b1026, #05060f)' },
+  sunrise: { n: ['Рассвет', 'Світанок', 'Sunrise'], css: 'linear-gradient(180deg, #1e3c72 0%, #6a82fb 35%, #fc9d9a 70%, #fce38a 100%)' },
+  ice: { n: ['Лёд', 'Лід', 'Ice'], css: 'radial-gradient(520px 400px at 20% 15%, rgba(255,255,255,.7), transparent 60%), linear-gradient(165deg, #e0f7ff, #9ad8f5 50%, #4a9fd4)' },
+  rosegold: { n: ['Розовое золото', 'Рожеве золото', 'Rose gold'], css: 'linear-gradient(160deg, #f6d5c9 0%, #e8a598 45%, #b76e79 100%)' },
+  matrix: { n: ['Матрица', 'Матриця', 'Matrix'], css: 'repeating-linear-gradient(90deg, rgba(46,242,160,.10) 0 2px, transparent 2px 18px), repeating-linear-gradient(0deg, rgba(46,242,160,.06) 0 1px, transparent 1px 22px), linear-gradient(180deg, #021a10, #000)' },
+  stripes: { n: ['Полосы', 'Смуги', 'Stripes'], css: 'repeating-linear-gradient(135deg, #1f2233 0 26px, #272b40 26px 52px)' },
+  dots: { n: ['Горошек', 'Горошок', 'Dots'], css: 'radial-gradient(circle, rgba(255,255,255,.16) 2.5px, transparent 3px) 0 0 / 26px 26px, linear-gradient(160deg, #3a1c71, #d76d77 60%, #ffaf7b)' },
+  grid: { n: ['Сетка', 'Сітка', 'Grid'], css: 'linear-gradient(rgba(255,255,255,.07) 1px, transparent 1px) 0 0 / 100% 34px, linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px) 0 0 / 34px 100%, linear-gradient(180deg, #141a2e, #0a0d18)' },
+  cherry: { n: ['Вишня', 'Вишня', 'Cherry'], css: 'radial-gradient(460px 360px at 25% 20%, rgba(255,90,120,.5), transparent 60%), linear-gradient(170deg, #5e0f1c, #2a060c)' },
+  sky: { n: ['Небо', 'Небо', 'Sky'], css: 'radial-gradient(420px 260px at 70% 18%, rgba(255,255,255,.75), transparent 62%), linear-gradient(180deg, #4facfe, #a6e3ff 70%, #eaf9ff)' },
+  p_city: { n: ['Ночной город', 'Нічне місто', 'City at night'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/city.jpg) center / cover no-repeat', photo: 'assets/walls/city.jpg' },
+  p_mountains: { n: ['Горное озеро', 'Гірське озеро', 'Mountain lake'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/mountains.jpg) center / cover no-repeat', photo: 'assets/walls/mountains.jpg' },
+  p_tokyo: { n: ['Неоновая улица', 'Неонова вулиця', 'Neon street'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/tokyo.jpg) center / cover no-repeat', photo: 'assets/walls/tokyo.jpg' },
+  p_waves: { n: ['Океан сверху', 'Океан згори', 'Ocean from above'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/waves.jpg) center / cover no-repeat', photo: 'assets/walls/waves.jpg' },
+  p_fog: { n: ['Туманный лес', 'Туманний ліс', 'Foggy forest'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/fog.jpg) center / cover no-repeat', photo: 'assets/walls/fog.jpg' },
+  p_dunes: { n: ['Пустыня', 'Пустеля', 'Desert'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/dunes.jpg) center / cover no-repeat', photo: 'assets/walls/dunes.jpg' },
+  p_aurora2: { n: ['Сияние в горах', 'Сяйво в горах', 'Aurora peaks'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/aurora2.jpg) center / cover no-repeat', photo: 'assets/walls/aurora2.jpg' },
+  p_liquid: { n: ['Жидкое стекло', 'Рідке скло', 'Liquid glass'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/liquid.jpg) center / cover no-repeat', photo: 'assets/walls/liquid.jpg' },
+  p_sakura: { n: ['Сакура', 'Сакура', 'Cherry blossom'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/sakura.jpg) center / cover no-repeat', photo: 'assets/walls/sakura.jpg' },
+  p_pines: { n: ['Сосновый лес', 'Сосновий ліс', 'Pine forest'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/pines.jpg) center / cover no-repeat', photo: 'assets/walls/pines.jpg' },
+  p_beach: { n: ['Закат на пляже', 'Захід на пляжі', 'Beach sunset'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/beach.jpg) center / cover no-repeat', photo: 'assets/walls/beach.jpg' },
+  p_milkyway: { n: ['Млечный путь', 'Чумацький шлях', 'Milky Way'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/milkyway.jpg) center / cover no-repeat', photo: 'assets/walls/milkyway.jpg' },
+  p_neonrain: { n: ['Неон под дождём', 'Неон під дощем', 'Neon rain'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/neonrain.jpg) center / cover no-repeat', photo: 'assets/walls/neonrain.jpg' },
+  p_fluid: { n: ['Флюид', 'Флюїд', 'Fluid art'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/fluid.jpg) center / cover no-repeat', photo: 'assets/walls/fluid.jpg' },
+  p_icecave: { n: ['Ледяная пещера', 'Крижана печера', 'Ice cave'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/icecave.jpg) center / cover no-repeat', photo: 'assets/walls/icecave.jpg' },
+  p_canyon: { n: ['Каньон', 'Каньйон', 'Canyon'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/canyon.jpg) center / cover no-repeat', photo: 'assets/walls/canyon.jpg' },
+  p_peaks: { n: ['Снежные вершины', 'Снігові вершини', 'Snowy peaks'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/peaks.jpg) center / cover no-repeat', photo: 'assets/walls/peaks.jpg' },
+  p_towers: { n: ['Небоскрёбы', 'Хмарочоси', 'Skyscrapers'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/towers.jpg) center / cover no-repeat', photo: 'assets/walls/towers.jpg' },
+  p_marble: { n: ['Чёрный мрамор', 'Чорний мармур', 'Black marble'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/marble.jpg) center / cover no-repeat', photo: 'assets/walls/marble.jpg' },
+  p_clouds: { n: ['Над облаками', 'Над хмарами', 'Above the clouds'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/clouds.jpg) center / cover no-repeat', photo: 'assets/walls/clouds.jpg' },
+  p_autumn: { n: ['Осенняя аллея', 'Осіння алея', 'Autumn alley'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/autumn.jpg) center / cover no-repeat', photo: 'assets/walls/autumn.jpg' },
+  p_supercar: { n: ['Ночной суперкар', 'Нічний суперкар', 'Night supercar'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/supercar.jpg) center / cover no-repeat', photo: 'assets/walls/supercar.jpg' },
+  p_gold: { n: ['Золото', 'Золото', 'Gold'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/gold.jpg) center / cover no-repeat', photo: 'assets/walls/gold.jpg' },
+  p_bridge: { n: ['Мост ночью', 'Міст уночі', 'Bridge at night'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/bridge.jpg) center / cover no-repeat', photo: 'assets/walls/bridge.jpg' },
+  p_glasswaves: { n: ['Стеклянные волны', 'Скляні хвилі', 'Glass waves'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/glasswaves.jpg) center / cover no-repeat', photo: 'assets/walls/glasswaves.jpg' },
+  p_synthwave: { n: ['Синтвейв', 'Синтвейв', 'Synthwave'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/synthwave.jpg) center / cover no-repeat', photo: 'assets/walls/synthwave.jpg' },
+  p_monstera: { n: ['Монстера', 'Монстера', 'Monstera'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/monstera.jpg) center / cover no-repeat', photo: 'assets/walls/monstera.jpg' },
+  p_lavender: { n: ['Лавандовое поле', 'Лавандове поле', 'Lavender field'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/lavender.jpg) center / cover no-repeat', photo: 'assets/walls/lavender.jpg' },
+  p_underwater: { n: ['Под водой', 'Під водою', 'Underwater'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/underwater.jpg) center / cover no-repeat', photo: 'assets/walls/underwater.jpg' },
+  p_carbon: { n: ['Карбон', 'Карбон', 'Carbon'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/carbon.jpg) center / cover no-repeat', photo: 'assets/walls/carbon.jpg' },
+  p_nightroad: { n: ['Ночная трасса', 'Нічна траса', 'Night road'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/nightroad.jpg) center / cover no-repeat', photo: 'assets/walls/nightroad.jpg' },
+  p_cash: { n: ['Наличка', 'Готівка', 'Cash'], css: 'linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.28)), url(assets/walls/cash.jpg) center / cover no-repeat', photo: 'assets/walls/cash.jpg' },
 };
+// your own wallpapers: a photo from your gallery (kept in the browser, not in the save) and a builder
+const PHOTO_KEY = 'gr_wall_photo';
+let photoCache = null;
+export const myPhoto = () => { if (photoCache === null) { try { photoCache = localStorage.getItem(PHOTO_KEY) || ''; } catch { photoCache = ''; } } return photoCache; };
+export function setMyPhoto(dataUrl) { photoCache = dataUrl || ''; try { if (dataUrl) localStorage.setItem(PHOTO_KEY, dataUrl); else localStorage.removeItem(PHOTO_KEY); return true; } catch { return false; } }
+export const BUILD_STYLES = { linear: ['Градиент', 'Градієнт', 'Gradient'], glow: ['Свечение', 'Світіння', 'Glow'], mesh: ['Пятна', 'Плями', 'Mesh'], split: ['Пополам', 'Навпіл', 'Split'] };
+export const BUILD_PATTERNS = { none: ['Без узора', 'Без візерунка', 'No pattern'], dots: ['Горошек', 'Горошок', 'Dots'], grid: ['Сетка', 'Сітка', 'Grid'], stripes: ['Полосы', 'Смуги', 'Stripes'], stars: ['Звёзды', 'Зірки', 'Stars'] };
+export const defaultBuild = () => ({ c1: '#ff512f', c2: '#6a11cb', c3: '#0b1026', style: 'linear', angle: 160, pattern: 'none' });
+export function buildCss(b) {
+  const B = { ...defaultBuild(), ...(b || {}) };
+  const pat = { none: '', dots: 'radial-gradient(circle, rgba(255,255,255,.18) 2.5px, transparent 3px) 0 0 / 26px 26px, ', grid: 'linear-gradient(rgba(255,255,255,.08) 1px, transparent 1px) 0 0 / 100% 34px, linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px) 0 0 / 34px 100%, ', stripes: 'repeating-linear-gradient(135deg, rgba(255,255,255,.07) 0 22px, transparent 22px 44px), ', stars: 'radial-gradient(1.5px 1.5px at 20% 30%, #fff, transparent), radial-gradient(1px 1px at 70% 20%, #fff, transparent), radial-gradient(1.5px 1.5px at 40% 70%, #fff, transparent), radial-gradient(1px 1px at 85% 60%, #fff, transparent), radial-gradient(1px 1px at 10% 85%, #fff, transparent), radial-gradient(1.5px 1.5px at 55% 45%, #fff, transparent), radial-gradient(1px 1px at 30% 12%, #fff, transparent), ' }[B.pattern] || '';
+  const base = B.style === 'glow' ? `radial-gradient(560px 420px at 25% 18%, ${B.c1}, transparent 62%), radial-gradient(520px 480px at 85% 75%, ${B.c2}, transparent 62%), linear-gradient(180deg, ${B.c3}, ${B.c3})`
+    : B.style === 'mesh' ? `radial-gradient(420px 380px at 15% 15%, ${B.c1}, transparent 60%), radial-gradient(440px 400px at 90% 35%, ${B.c2}, transparent 60%), radial-gradient(480px 420px at 40% 95%, ${B.c1}, transparent 60%), linear-gradient(180deg, ${B.c3}, ${B.c3})`
+      : B.style === 'split' ? `linear-gradient(${B.angle}deg, ${B.c1} 0 50%, ${B.c2} 50% 100%)`
+        : `linear-gradient(${B.angle}deg, ${B.c1} 0%, ${B.c2} 55%, ${B.c3} 100%)`;
+  return pat + base;
+}
+export function wallCss(id = G.s.home.wall) {
+  if (id === 'my') return buildCss(G.s.home.myWall);
+  if (id === 'photo' && myPhoto()) return `linear-gradient(rgba(0,0,0,.1), rgba(0,0,0,.26)), url(${myPhoto()}) center / cover no-repeat`;
+  return (WALLS[id] || WALLS.hacker).css;
+}
 function applyWall() {
-  const w = WALLS[G.s.home.wall] || WALLS.hacker;
+  const css = wallCss();
   const home = $('#home');
-  if (home._wall === w) return;
-  home._wall = w;
-  home.style.background = w.css;
-  home.classList.toggle('nogrid', !w.grid);
+  if (home._wall === css) return;
+  home._wall = css;
+  home.style.background = css;
+  home.classList.toggle('nogrid', !WALLS[G.s.home.wall]?.grid);
 }
 export function renderHomeScreen() {
   const s = G.s; if (!s) return;
@@ -203,7 +274,7 @@ function startDrag(el, e) {
   mark();
   const flip = (dir) => {
     const W = home.clientWidth;
-    const np = clamp(HOME.page + dir, 0, G.s.home.lay.pages.length);
+    const np = clamp(HOME.page + dir, 0, G.s.home.lay.pages.length - 1);
     if (np !== HOME.page && moveKey(key, np, null)) { HOME.page = np; renderHomeScreen(); home.scrollTo({ left: np * W, behavior: 'smooth' }); mark(); navigator.vibrate?.(8); }
   };
   const odown = (ev) => { if (ev.pointerId !== pid) others.set(ev.pointerId, { x: ev.clientX, y: ev.clientY, done: false }); };
@@ -223,7 +294,7 @@ function startDrag(el, e) {
       if (!edgeT) edgeT = now;
       else if (now - edgeT > 650) {
         edgeT = now;
-        const np = clamp(HOME.page + edge, 0, G.s.home.lay.pages.length);
+        const np = clamp(HOME.page + edge, 0, G.s.home.lay.pages.length - 1);
         if (np !== HOME.page) { if (moveKey(key, np, null)) { HOME.page = np; renderHomeScreen(); home.scrollTo({ left: np * W, behavior: 'smooth' }); mark(); } }
       }
       return;
@@ -288,6 +359,59 @@ export function initHome() {
   home.addEventListener('pointerdown', down);
   $('#dockbar').addEventListener('pointerdown', down);
 }
+// a photo from the gallery → cropped to the screen shape and shrunk so it fits in the browser storage
+function pickPhoto() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = () => {
+    const f = inp.files?.[0]; if (!f) return;
+    const img = new Image();
+    const url = URL.createObjectURL(f);
+    img.onload = () => {
+      const W = 540, H = 1170, cv = document.createElement('canvas');
+      cv.width = W; cv.height = H;
+      const k = Math.max(W / img.width, H / img.height), w = img.width * k, h = img.height * k;
+      cv.getContext('2d').drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+      URL.revokeObjectURL(url);
+      let data = cv.toDataURL('image/jpeg', 0.72);
+      if (data.length > 420000) data = cv.toDataURL('image/jpeg', 0.5);
+      if (!setMyPhoto(data)) return toast(T('Не хватило места, чтобы сохранить фото', 'Не вистачило місця, щоб зберегти фото', 'Not enough space to keep the photo'), 'r');
+      G.s.home.wall = 'photo'; $('#home')._wall = null; renderHomeScreen();
+      toast(T('Обои установлены', 'Шпалери встановлено', 'Wallpaper set'), 'g');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); toast(T('Не получилось открыть картинку', 'Не вдалося відкрити картинку', 'Couldn’t open the image'), 'r'); };
+    img.src = url;
+  };
+  inp.click();
+}
+// build your own: three colours, a style, an angle and a pattern, with a live preview
+async function buildWall() {
+  const b = { ...defaultBuild(), ...(G.s.home.myWall || {}) };
+  const chips = (key, map) => Object.entries(map).map(([k, n]) => `<button class="chip${b[key] === k ? ' on' : ''}" data-bk="${key}" data-bv="${k}">${esc(L(n))}</button>`).join('');
+  const PRESETS = [['#ff512f', '#dd2476', '#3a0b2e'], ['#00c6ff', '#0072ff', '#03102b'], ['#f7971e', '#ffd200', '#5a2d00'], ['#11998e', '#38ef7d', '#052a22'], ['#8e2de2', '#4a00e0', '#0b0320'], ['#ff9a9e', '#fad0c4', '#ffd1ff'], ['#232526', '#414345', '#000000'], ['#fc466b', '#3f5efb', '#0a0f2c']];
+  const r = await sheet(`<h2>🎨 ${T('Свои обои', 'Свої шпалери', 'My wallpaper')}</h2><div class="wb"><div class="wb-prev"><i></i></div><div class="wb-ctl">
+      <div class="wb-cols"><label>${T('Цвет 1', 'Колір 1', 'Colour 1')}<input type="color" data-bc="c1" value="${b.c1}"></label><label>${T('Цвет 2', 'Колір 2', 'Colour 2')}<input type="color" data-bc="c2" value="${b.c2}"></label><label>${T('Цвет 3', 'Колір 3', 'Colour 3')}<input type="color" data-bc="c3" value="${b.c3}"></label></div>
+      <div class="wb-pre">${PRESETS.map((p, i) => `<button data-bp="${i}" style="background:linear-gradient(135deg,${p[0]},${p[1]})"></button>`).join('')}</div>
+      <small>${T('Стиль', 'Стиль', 'Style')}</small><div class="chips wrap">${chips('style', BUILD_STYLES)}</div>
+      <small>${T('Узор', 'Візерунок', 'Pattern')}</small><div class="chips wrap">${chips('pattern', BUILD_PATTERNS)}</div>
+      <small>${T('Угол', 'Кут', 'Angle')}: <b class="wb-ang">${b.angle}°</b></small><input type="range" min="0" max="360" step="5" value="${b.angle}" data-ba="1">
+    </div></div><button class="btn block mt" data-wbok="1">${T('Поставить на экран', 'Поставити на екран', 'Set as wallpaper')}</button>`, { after(el) {
+    const prev = el.querySelector('.wb-prev i');
+    const upd = () => { prev.style.background = buildCss(b); el.querySelector('.wb-ang').textContent = b.angle + '°'; };
+    upd();
+    el.addEventListener('input', (e) => { const t = e.target; if (t.dataset.bc) b[t.dataset.bc] = t.value; if (t.dataset.ba) b.angle = +t.value; upd(); });
+    el.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-bk],[data-bp],[data-wbok]'); if (!t) return;
+      if (t.dataset.wbok) return resolveSheet('ok');
+      if (t.dataset.bp != null) { const p = PRESETS[+t.dataset.bp]; [b.c1, b.c2, b.c3] = p; el.querySelectorAll('[data-bc]').forEach((x) => { x.value = b[x.dataset.bc]; }); }
+      if (t.dataset.bk) { b[t.dataset.bk] = t.dataset.bv; el.querySelectorAll(`[data-bk="${t.dataset.bk}"]`).forEach((x) => x.classList.toggle('on', x === t)); }
+      upd();
+    });
+  } });
+  if (r !== 'ok') return;
+  G.s.home.myWall = b; G.s.home.wall = 'my'; renderHomeScreen();
+  toast(T('Обои установлены', 'Шпалери встановлено', 'Wallpaper set'), 'g');
+}
 export const homeActions = {
   homeDone: () => { HOME.edit = false; renderHomeScreen(); },
   homePage: (v) => { const home = $('#home'); home.scrollTo({ left: +v * home.clientWidth, behavior: 'smooth' }); },
@@ -303,8 +427,16 @@ export const homeActions = {
   },
   homeWall: async () => {
     const cur = G.s.home.wall || 'hacker';
-    const v = await sheet(`<h2>${T('Обои', 'Шпалери', 'Wallpaper')}</h2><div class="walls">${Object.entries(WALLS).map(([k, w]) => `<button class="${k === cur ? 'on' : ''}" data-a="resolve" data-v="${k}"><i style="background:${w.css}"></i><small>${esc(L(w.n))}</small></button>`).join('')}</div>`);
+    const tile = (k, css, name, extra = '') => `<button class="${k === cur ? 'on' : ''}" data-a="resolve" data-v="${k}"><i style="background:${css}"></i><small>${esc(name)}</small>${extra}</button>`;
+    const entries = Object.entries(WALLS);
+    const v = await sheet(`<h2>${T('Обои', 'Шпалери', 'Wallpaper')}</h2>
+      <div class="wall-own"><button data-a="resolve" data-v="__photo">📷 ${T('Своё фото', 'Своє фото', 'My photo')}</button><button data-a="resolve" data-v="__build">🎨 ${T('Создать свои', 'Створити свої', 'Build my own')}</button></div>
+      <div class="walls">${myPhoto() ? tile('photo', wallCss('photo'), T('Моё фото', 'Моє фото', 'My photo')) : ''}${G.s.home.myWall ? tile('my', buildCss(G.s.home.myWall), T('Мои обои', 'Мої шпалери', 'My wallpaper')) : ''}</div>
+      <h3 class="sub">${T('Фото', 'Фото', 'Photos')} · ${entries.filter(([, w]) => w.photo).length}</h3><div class="walls">${entries.filter(([, w]) => w.photo).map(([k, w]) => tile(k, `url(${w.photo}) center / cover`, L(w.n))).join('')}</div>
+      <h3 class="sub">${T('Цвета и узоры', 'Кольори й візерунки', 'Colours and patterns')} · ${entries.filter(([, w]) => !w.photo).length}</h3><div class="walls">${entries.filter(([, w]) => !w.photo).map(([k, w]) => tile(k, w.css, L(w.n))).join('')}</div>`);
     if (!v) return;
+    if (v === '__photo') return pickPhoto();
+    if (v === '__build') return buildWall();
     G.s.home.wall = v; renderHomeScreen();
   },
   homeAddW: async () => {

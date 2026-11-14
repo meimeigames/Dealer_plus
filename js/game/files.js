@@ -12,6 +12,7 @@ import { PHOTO_FILES } from '../data/photos.js';
 import { earn, charge, addXP, addReview, notify, log, stat, canAfford } from './player.js';
 import { fmt } from '../core/money.js';
 import { arrest } from './crime.js';
+import { extraFiles } from './files_extra.js';
 
 const T_KIND = { usb: 'usb', secure: 'secure', sd: 'card', microsd: 'card', cf: 'card', memstick: 'card', dashcam: 'dashcam', hdd: 'hdd', office: 'office', hdd25: 'hdd', ssd: 'hdd', nvme: 'hdd', exthdd: 'hdd', extssd: 'hdd', nas: 'nas', tape: 'tape', zip: 'floppy', cd: 'cd', dvd: 'dvd', gamecd: 'gamecd', floppy: 'floppy', cassette: 'cassette', minidisc: 'cassette', vhs: 'vhs', minidv: 'vhs', ipod: 'ipod', dictaphone: 'dictaphone' };
 const CONSOLE_T = ['ps3', 'ps4', 'ps5', 'x360', 'xone', 'xss', 'xsx', 'switch', 'switchlite', 'deck', 'psp', 'ds', 'wii'];
@@ -198,6 +199,8 @@ export function deviceFiles(it) {
     if (d0) { const ex0 = d0.files.find((x) => x.type === 'exe'); if (ex0) ex0.flag = 'virus'; else d0.files.push(F(ex, 'exe', 0.6, { flag: 'virus' })); }
     else dir('', [F(ex, 'exe', 0.6, { flag: 'virus' })]);
   }
+  // everyday folders and one-time finds (files_extra.js, own RNG)
+  extraFiles(it, { kind, year, base, F, dir, couple, firm, pet, cam });
   // damaged drive: some files unreadable
   const bad = (it.defects || []).some((x) => x.c === 's_bad') || (['cd', 'dvd', 'floppy', 'vhs', 'cassette'].includes(kind) && (it.cond || 80) < 35);
   for (const dd of base.dirs) for (const f of dd.files) { if (bad && !f.flag && r.chance(0.3)) f.bad = true; base.used += f.size || 0; if (f.personal) base.personal = true; }

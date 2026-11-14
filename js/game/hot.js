@@ -55,6 +55,16 @@ export function riskOf(it) {
 }
 // one police check
 export const catchChance = (it) => 1 - Math.pow(1 - riskOf(it), 1 / CHECKS);
+// After a sale: the chance the buyer runs it through the databases and reports you. Fully wiped — only 5–7%
+// (every item has its own number); each trace still on it raises it, an untouched one ~60%.
+export const buyerFloor = (it) => (it?.hot ? (it.hot.bmin ??= +(0.05 + (hashId(it.id + '|b') % 21) / 1000).toFixed(3)) : 0);
+export function buyerRisk(it) {
+  if (!it?.hot) return 0;
+  const lo = buyerFloor(it);
+  if (!markLeft(it).length) return lo;
+  const x = clamp((traceOf(it) - HOT_FLOOR) / (95 - HOT_FLOOR), 0.08, 1);
+  return clamp(lo + (0.6 - lo) * Math.pow(x, 0.85) * dv().crime, lo, 0.85);
+}
 
 // make an item stolen; known = the seller admitted it (it shows as hot right away)
 export function makeHot(it, rng, o = {}) {
@@ -122,19 +132,17 @@ export function hotTick() {
   emit('inv');
 }
 // Selling anything that came from the Shade (through ads, a pawn shop, your store, an auction, a dealer…):
-// the buyer may check it. Stolen: whatever risk was still hanging over it passes to the buyer's check (at least
-// half of the item's overall risk, all of it if you sold before the police ever looked). Grey imports: now and
-// then a buyer checks the serial and reports the seller. The fence and "no questions" orders don't check.
+// the buyer may check it. Stolen: the police stop looking at you, the buyer checks instead — 5–7% for a fully
+// wiped item, more with traces left (buyerRisk). Grey imports: now and then a buyer checks the serial and
+// reports the seller. The fence and "no questions" orders don't check.
 export function noteHotSale(it, price) {
   // forged papers: now and then a buyer's bank or a service centre spots them
   if (it?.fakeDocs && Math.random() < 0.06) arrest('fake', { text: T('Поддельные документы на вещь', 'Підроблені документи на річ', 'Forged papers for an item') });
   if (!it) return;
   const s = G.s, r = new RNG(uid('hb'));
   if (it.hot) {
-    const left = (s.hotw || []).filter((x) => x.id === it.id && !x.buyer).length;
     s.hotw = (s.hotw || []).filter((x) => x.id !== it.id);
-    const R = riskOf(it);
-    const p = Math.max(1 - Math.pow(1 - R, left / CHECKS), R * 0.5);
+    const p = buyerRisk(it);
     s.hotw.push({ id: it.id, buyer: true, title: itemTitle(it), at: s.t + r.int(90, 720), val: itemValue(it, s.player.city, 'true', { clean: true }), price, p });
     return;
   }

@@ -17,6 +17,7 @@ import { img } from '../ui/comp.js';
 import { sfx } from '../ui/sfx.js';
 import { playMini } from '../mini/engine.js';
 import { hasStorage, storageKind, deviceFiles, accessOf, connect, wipe, KIND_NAME, LOCKED } from '../game/files.js';
+import { lootIcon } from '../game/files_extra.js';
 import { filesActions, FV } from './files_view.js';
 import { lockOf, lockText, tryCode, payLocker, lookupCode, cureAll, processList, endTask, deleteFile, defenderCatch, aliveMiners, badProcs, autorun, slowK } from '../game/pcvirus.js';
 import { installerDrive } from '../game/pc.js';
@@ -176,7 +177,7 @@ function explorer() {
       main = `<div class="pcd-path">${esc(L(KIND_NAME[storageKind(it)]))} · ${esc(itemTitle(it, false))}</div>`;
       if (f.empty) main += `<div class="pcd-empty">📭<b>${T('Пусто', 'Порожньо', 'Empty')}</b></div>`;
       else if (it.data?.ransom) main += `<div class="pcd-empty">🔒<b>${esc(LOCKED.ransom())}</b><div class="pcd-btns"><button class="btn sm" ${pa('fact', `fransom|${it.id}`)}>💸 ${T('Заплатить', 'Заплатити', 'Pay')}</button><button class="btn sm dark" ${pa('fact', `fdecrypt|${it.id}`)}>🧩 ${T('Подобрать ключ', 'Підібрати ключ', 'Crack the key')}</button></div></div>`;
-      else main += f.dirs.map((dd) => `<div class="pcd-dir">📁 ${esc(dd.name || '/')}</div>${dd.files.map((x) => `<div class="pcd-file ${x.bad ? 'bad' : ''}" ${pa('fopen', `${it.id}|${x.id}`)}><i>${{ photo: '🖼', video: '🎞', text: '📝', doc: '📄', music: '🎵', audio: '🎙', exe: '⚙️', wallet: '👛', game: '🎮', save: '💾', archive: '🗜', contact: '👥' }[x.type] || '📄'}</i><b>${esc(x.name)}</b><small>${x.bad ? '⚠' : ''}</small></div>`).join('')}`).join('');
+      else main += f.dirs.map((dd) => `<div class="pcd-dir">📁 ${esc(dd.name || '/')}</div>${dd.files.map((x) => `<div class="pcd-file ${x.bad ? 'bad' : ''}" ${pa('fopen', `${it.id}|${x.id}`)}><i>${x.flag?.startsWith('loot:') ? lootIcon(x.flag.slice(5)) : { photo: '🖼', video: '🎞', text: '📝', doc: '📄', music: '🎵', audio: '🎙', exe: '⚙️', wallet: '👛', game: '🎮', save: '💾', archive: '🗜', contact: '👥' }[x.type] || '📄'}</i><b>${esc(x.name)}</b><small>${x.bad ? '⚠' : ''}</small></div>`).join('')}`).join('');
       if (!f.empty) main += `<button class="btn sm dark mt" ${pa('wipe', it.id)}>🧹 ${T('Стереть всё', 'Стерти все', 'Wipe everything')}</button>`;
     }
   }

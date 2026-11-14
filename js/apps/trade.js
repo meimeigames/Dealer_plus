@@ -10,7 +10,8 @@ import { icon } from '../ui/icons.js';
 import { go, rerender, toast, askPrice, confirmBox, sheet, closeSheet, UI, gameDate } from '../ui/shell.js';
 import { img, empty, tags, specs, defectList } from '../ui/comp.js';
 import { itemTitle, itemSub, itemValue, makeItem, isVehicle, rarityName } from '../game/items.js';
-import { auctions, minNext, placeBid, BOXES, rollBox, buyBox, takeBoxPrize, wholesale, buyWholesale } from '../game/sources.js';
+import { auctions, minNext, placeBid, BOXES, rollBox, buyBox, takeBoxPrize, wholesale, buyWholesale, CONTAINERS, containerOffers, buyContainer, openContainer, contState } from '../game/sources.js';
+import { MODEL } from '../data/catalog.js';
 import { getItem } from '../game/player.js';
 import { canStore, spend, stat, addXP, addItem } from '../game/player.js';
 import { deliveryTime } from '../game/market.js';
@@ -108,7 +109,8 @@ function storeFeed() {
 }
 function shopMain() {
   const s = G.s;
-  const tabs = `<div class="seg"><button class="${M.tab === 'boxes' ? 'on' : ''}" data-a="mt" data-v="boxes">${T('Боксы', 'Бокси', 'Boxes')}</button><button class="${M.tab === 'store' ? 'on' : ''}" data-a="mt" data-v="store">${T('Новое', 'Нове', 'New')}</button><button class="${M.tab === 'whole' ? 'on' : ''}" data-a="mt" data-v="whole">${T('Опт', 'Опт', 'Bulk')}</button></div>`;
+  const tabs = `<div class="seg"><button class="${M.tab === 'boxes' ? 'on' : ''}" data-a="mt" data-v="boxes">${T('Боксы', 'Бокси', 'Boxes')}</button><button class="${M.tab === 'store' ? 'on' : ''}" data-a="mt" data-v="store">${T('Новое', 'Нове', 'New')}</button><button class="${M.tab === 'whole' ? 'on' : ''}" data-a="mt" data-v="whole">${T('Опт', 'Опт', 'Bulk')}</button><button class="${M.tab === 'conts' ? 'on' : ''}" data-a="mt" data-v="conts">${T('Контейнеры', 'Контейнери', 'Containers')}${contState().own.filter((o) => !o.opened && s.t >= o.eta).length ? ' ●' : ''}</button></div>`;
+  if (M.tab === 'conts') return tabs + contsTab();
   if (M.tab === 'boxes') return tabs + `<p class="p">${T('Мистери‑боксы: внутри случайная вещь. Чем дороже бокс — тем ценнее содержимое. Можно выбить джекпот.', 'Містері‑бокси: всередині випадкова річ. Можна вибити джекпот.', 'Mystery boxes: random contents, chance of a jackpot.')}</p>` + BOXES.map((b) => `<div class="card" style="border-left:4px solid ${b.color}"><div class="row"><div style="font-size:40px">🎁</div><div class="grow"><h3>${esc(L(b.n))}</h3><div class="small m">${b.cats ? b.cats.map((c) => CATS[c].icon).join(' ') : T('всё подряд', 'усе підряд', 'anything')}${s.level < b.lvl ? ` · 🔒 ${T('ур.', 'рів.', 'lvl')} ${b.lvl}` : ''}</div></div><button class="btn sm" data-a="box" data-v="${b.id}" ${s.level < b.lvl ? 'disabled' : ''}>${fmt(b.price)}</button></div></div>`).join('');
   if (M.tab === 'store') {
     const st = storeFeed();
@@ -116,6 +118,24 @@ function shopMain() {
   }
   const w = wholesale();
   return tabs + `<p class="p">${T('Оптовые партии дешевле поштучной покупки, но внутри бывают сломанные и заблокированные вещи.', 'Оптові партії дешевші, але всередині бувають зламані речі.', 'Bulk lots are cheaper, but contain broken and locked items.')}</p>` + w.deals.filter((d) => !d.sold).map((d) => `<div class="card"><div class="row between"><h3>${CATS[d.cat].icon} ${esc(L(d.name))}</h3><span class="tag">${d.items.length} ${T('шт', 'шт', 'pcs')}</span></div><div class="row" style="gap:6px;overflow:hidden;margin:8px 0">${d.items.slice(0, 5).map((it) => `<div style="width:56px;height:56px;border-radius:10px;overflow:hidden;flex:none">${img(it)}</div>`).join('')}</div><div class="row between"><span class="small m">${T('≈ за штуку', '≈ за штуку', '≈ each')} ${fmt(d.price / d.items.length)}</span><button class="btn sm" data-a="whole" data-v="${d.id}">${fmt(d.price)}</button></div></div>`).join('');
+}
+// containers bought blind, in price classes
+const cdef = (id) => CONTAINERS.find((c) => c.id === id);
+function contsTab() {
+  const s = G.s, st = contState(), offers = containerOffers();
+  const mine = st.own.filter((o) => !o.opened);
+  const last = st.own.filter((o) => o.opened).slice(-3).reverse();
+  let h = `<p class="p">${T('Контейнер покупается вслепую: видно только класс, примерное число вещей и пару категорий. Внутри бывает хлам, обычные вещи и редко — джекпот. Скрытые дефекты и реплики встречаются часто: проверяйте легит‑чеком.', 'Контейнер купується наосліп: видно лише клас, приблизну кількість речей і пару категорій. Усередині буває мотлох, звичайні речі й рідко — джекпот. Приховані дефекти й репліки трапляються часто: перевіряйте легіт‑чеком.', 'A container is bought blind: you see its class, a rough item count and a couple of categories. Inside: junk, ordinary things and, rarely, a jackpot. Hidden defects and replicas are common — run legit checks.')} ⟳ <span data-cd="${offers[0].until}"></span></p>`;
+  if (mine.length) h += `<h3 class="sub">${T('Мои контейнеры', 'Мої контейнери', 'My containers')}</h3>` + mine.map((o) => { const c = cdef(o.def); const ready = s.t >= o.eta; return `<div class="card ct-own"><div class="row"><div class="ct-ic">${c.ic}</div><div class="grow"><b>${esc(L(c.n))}</b><div class="small m">${fmt(o.price)} · ${ready ? `<span class="g">${T('приехал', 'приїхав', 'arrived')}</span>` : `🚛 <span data-cd="${o.eta}"></span>`}</div></div><button class="btn sm ${ready ? '' : 'dark'}" data-a="contopen" data-v="${o.id}" ${ready ? '' : 'disabled'}>${T('Вскрыть', 'Розкрити', 'Open')}</button></div></div>`; }).join('');
+  h += `<h3 class="sub">${T('В продаже', 'У продажу', 'On sale')}</h3>` + offers.map((o) => { const c = cdef(o.def); return `<div class="card ct-card ${o.sold ? 'sold' : ''}"><div class="row"><div class="ct-ic">${c.ic}</div><div class="grow"><div class="row between"><b>${esc(L(c.n))}</b><b>${fmt(o.price)}</b></div><div class="small m">${esc(L(c.d))}</div><div class="ct-tags"><span>📦 ${c.cnt[0]}–${c.cnt[1]} ${T('вещей', 'речей', 'items')}</span><span>${T('видно', 'видно', 'visible')}: ${o.hint.map((x) => CATS[x].icon).join(' ')} …</span><span>🚛 ${Math.round(c.eta / 60)} ${T('ч', 'год', 'h')}</span></div></div></div><button class="btn sm block mt" data-a="contbuy" data-v="${o.id}" ${o.sold ? 'disabled' : ''}>${o.sold ? T('Куплен', 'Куплено', 'Bought') : T('Купить вслепую', 'Купити наосліп', 'Buy blind')}</button></div>`; }).join('');
+  if (last.length) h += `<h3 class="sub">${T('Недавно вскрытые', 'Нещодавно розкриті', 'Recently opened')}</h3>` + last.map((o) => { const c = cdef(o.def); const d = o.value - o.price; return `<div class="kv"><span>${c.ic} ${esc(L(c.n))} · ${o.n} ${T('вещей', 'речей', 'items')}</span><b class="${d >= 0 ? 'g' : 'r'}">${fmt(o.value)} (${d >= 0 ? '+' : '−'}${fmt(Math.abs(d))})</b></div>`; }).join('') + `<p class="tiny m">${T('Оценка — до легит‑чека и скрытых дефектов.', 'Оцінка — до легіт‑чеку й прихованих дефектів.', 'Value before legit checks and hidden defects.')}</p>`;
+  return h;
+}
+async function revealContainer(res) {
+  const c = cdef(res.own.def), d = res.total - res.own.price;
+  await sheet(`<h2>${c.ic} ${esc(L(c.n))}</h2><div class="ct-reveal">${res.items.map((it, i) => `<div class="ct-it" style="animation-delay:${i * 0.12}s"><div class="th">${img(it, { lite: true })}</div><small>${esc(itemTitle(it))}</small><b>${fmt(res.own.items[i].v)}</b></div>`).join('')}</div>
+    <div class="card mt"><div class="kv"><span>${T('Вещей', 'Речей', 'Items')}</span><b>${res.items.length}</b></div><div class="kv"><span>${T('Заплачено', 'Сплачено', 'Paid')}</span><b>${fmt(res.own.price)}</b></div><div class="kv"><span>${T('Оценка на вид', 'Оцінка на вигляд', 'Looks worth')}</span><b class="${d >= 0 ? 'g' : 'r'}">${fmt(res.total)} (${d >= 0 ? '+' : '−'}${fmt(Math.abs(d))})</b></div></div>
+    <p class="small m">${T('Это оценка «как выглядит». Реплики и скрытые дефекты покажет только легит‑чек и осмотр.', 'Це оцінка «як виглядає». Репліки й приховані дефекти покаже лише легіт‑чек і огляд.', 'That’s what it looks like. Only legit checks and inspection show replicas and hidden defects.')}</p><button class="btn block" data-a="closeSheet">${T('На склад', 'На склад', 'To storage')}</button>`);
 }
 async function spinBox(box) {
   if (!buyBox(box)) return toast(T('Не хватает денег', 'Не вистачає грошей', 'Not enough money'), 'r');
@@ -145,6 +165,15 @@ export const shopApp = {
   views: { main: shopMain },
   actions: {
     mt: (v) => { M.tab = v; rerender(); },
+    contbuy: async (id) => {
+      const o = containerOffers().find((x) => x.id === id); if (!o || o.sold) return;
+      const c = cdef(o.def);
+      if (!(await confirmBox(`${c.ic} ${L(c.n)}`, T(`${fmt(o.price)} · внутри ${c.cnt[0]}–${c.cnt[1]} вещей, что именно — неизвестно. Привезут через ${Math.round(c.eta / 60)} ч.`, `${fmt(o.price)} · усередині ${c.cnt[0]}–${c.cnt[1]} речей, що саме — невідомо. Привезуть через ${Math.round(c.eta / 60)} год.`, `${fmt(o.price)} · ${c.cnt[0]}–${c.cnt[1]} unknown items inside. Arrives in ${Math.round(c.eta / 60)} h.`), T('Купить', 'Купити', 'Buy')))) return;
+      const r = buyContainer(id);
+      if (r.ok) { sfx('cash'); toast(T('Контейнер ваш — уже везут', 'Контейнер ваш — уже везуть', 'It’s yours — on its way'), 'g'); } else toast(r.msg || '—', 'r');
+      rerender();
+    },
+    contopen: async (id) => { const r = openContainer(id); if (!r.ok) return toast(r.msg || '—', 'r'); sfx(r.total > r.own.price * 1.3 ? 'win' : 'ok'); rerender(); await revealContainer(r); rerender(); },
     box: async (id) => { const b = BOXES.find((x) => x.id === id); if (await confirmBox(L(b.n), T(`Открыть за ${fmt(b.price)}?`, `Відкрити за ${fmt(b.price)}?`, `Open for ${fmt(b.price)}?`), T('Открыть', 'Відкрити', 'Open'))) await spinBox(b); },
     whole: async (id) => { const d = wholesale().deals.find((x) => x.id === id); if (!(await confirmBox(L(d.name), `${d.items.length} ${T('шт', 'шт', 'pcs')} · ${fmt(d.price)}`, T('Купить партию', 'Купити партію', 'Buy lot')))) return; const r = buyWholesale(d); toast(r.ok ? T('Партия на складе!', 'Партія на складі!', 'Lot in storage!') : r.msg, r.ok ? 'g' : 'r'); if (r.ok) sfx('cash'); rerender(); },
     buystore: async (id) => {
