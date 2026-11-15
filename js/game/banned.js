@@ -27,8 +27,12 @@ export const BMARKS = {
 export const BANNED_MODELS = () => MODELS.filter((m) => m.banned);
 export const isBannedItem = (it) => !!(it?.banned || MODEL[it?.m]?.banned);
 const hashId = (id) => { let h = 7; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; };
-export const BAN_FLOOR = 5;
-export const traceOfB = (it) => (it?.banned ? Math.round(it.banned.tr) : 0);
+// A forbidden thing never gets clean: after a full wipe at least 45 % of the trace stays (every item has its own
+// floor, 45–52 %). The police risk at the deal and the complaint chance still drop to 3–5 % / 5–7 % once every
+// trace has been worked on — the number shows how «dirty» the thing still is, not the odds.
+export const BAN_FLOOR = 45;
+export const banFloorOf = (it) => (it?.banned ? (it.banned.floor ??= BAN_FLOOR + (hashId(String(it.id) + '|bf') % 8)) : BAN_FLOOR);
+export const traceOfB = (it) => (it?.banned ? Math.round(Math.max(it.banned.tr, banFloorOf(it))) : 0);
 export const bMarksLeft = (it) => (it?.banned ? it.banned.marks.filter((k) => !it.banned.done.includes(k)) : []);
 // chance the police are watching the drop: 3–5 % fully wiped (each item its own), up to ~35 % untouched
 export const saleFloor = (it) => +(0.03 + (hashId(it.id + '|s') % 21) / 1000).toFixed(3);
@@ -36,7 +40,7 @@ export function saleRisk(it) {
   if (!it?.banned) return 0;
   const lo = saleFloor(it);
   if (!bMarksLeft(it).length) return lo;
-  const x = clamp((traceOfB(it) - BAN_FLOOR) / (90 - BAN_FLOOR), 0.05, 1);
+  const x = clamp((traceOfB(it) - banFloorOf(it)) / (95 - banFloorOf(it)), 0.05, 1);
   return clamp(lo + (0.35 - lo) * Math.pow(x, 0.9), lo, 0.6);
 }
 // a buyer who complains afterwards: 5–7 %
@@ -58,8 +62,10 @@ export const DISGUISES = [
 export function makeBanned(it, rng) {
   const all = Object.keys(BMARKS);
   const marks = rng.sample(all, rng.int(3, 4));
-  const tr = clamp(marks.reduce((a, k) => a + BMARKS[k].w, 0) * rng.float(0.85, 1.05), 30, 90);
-  it.banned = { kind: MODEL[it.m]?.banned || 'misc', tr: Math.round(tr), marks, done: [] };
+  it.banned = { kind: MODEL[it.m]?.banned || 'misc', tr: 0, marks, done: [] };
+  const fl = banFloorOf(it);
+  // fresh from the Shade: the floor plus what the traces add (≈ 70–95 %)
+  it.banned.tr = Math.round(clamp(fl + marks.reduce((a, k) => a + BMARKS[k].w, 0) * rng.float(0.45, 0.62), fl + 15, 95));
   it.shade = 'banned';
   return it;
 }
@@ -89,8 +95,10 @@ export function bWipe(it, k, quality = 1) {
   if (!it?.banned || !it.banned.marks.includes(k) || it.banned.done.includes(k)) return { ok: false };
   if (quality < 0.35) { it.banned.tr = clamp(it.banned.tr + 5, 0, 95); emit('inv'); return { ok: true, res: 'botched' }; }
   it.banned.done.push(k);
-  it.banned.tr = Math.max(BAN_FLOOR, Math.round(it.banned.tr - BMARKS[k].w * (quality >= 0.7 ? 1 : 0.65)));
-  if (!bMarksLeft(it).length) it.banned.tr = BAN_FLOOR;
+  // each trace takes its share of what sits above the floor (a rough job only part of it)
+  const fl = banFloorOf(it), rest = it.banned.marks.filter((x) => !it.banned.done.includes(x) || x === k), sumW = rest.reduce((a2, x) => a2 + BMARKS[x].w, 0) || 1;
+  it.banned.tr = Math.max(fl, Math.round(it.banned.tr - (it.banned.tr - fl) * (BMARKS[k].w / sumW) * (quality >= 0.7 ? 1 : 0.65)));
+  if (!bMarksLeft(it).length) it.banned.tr = banFloorOf(it);
   emit('inv');
   return { ok: true, res: quality >= 0.7 ? 'clean' : 'rough' };
 }
@@ -108,7 +116,7 @@ export const afterSales = () => bs().after;
 // the Shade's own buyers: a fast drop, about +15–20 % over what you paid on average (no doubling your money)
 export const offerFor = (it) => {
   const v = itemValue(it, G.s.player.city, 'true', { clean: true });
-  let p = v * ((isBox(it) ? 0.88 : 0.85) - 0.25 * traceOfB(it) / 100);
+  let p = v * ((isBox(it) ? 0.88 : 0.85) - 0.25 * (traceOfB(it) - banFloorOf(it)) / 100);
   if (it.paid > 0) p = Math.min(Math.max(it.paid * 1.16, v * 0.3), v * 0.95);
   return nicePrice(p, countryOf(G.s.player.city).cur);
 };
