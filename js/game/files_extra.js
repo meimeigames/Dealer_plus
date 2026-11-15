@@ -7,7 +7,9 @@ import { G, emit } from '../core/state.js';
 import { T, L } from '../core/i18n.js';
 import { RNG } from '../core/rng.js';
 import { PHOTO_FILES } from '../data/photos.js';
-import { earn, charge, addXP, addReview, stat, notify } from './player.js';
+import { earn, charge, spend, addItem, addXP, addReview, stat, notify } from './player.js';
+import { makeItem, itemTitle, itemValue } from './items.js';
+import { MODELS, modelValue } from '../data/catalog.js';
 import { fmt } from '../core/money.js';
 import { policeFine } from './crime.js';
 import { findApp } from './shadow.js';
@@ -29,6 +31,12 @@ const SHOTS = [
   sc('❤️', 'Сторис бывшей', 'Сторіс колишньої', 'An ex’s story'), sc('🧾', 'Квитанция за свет', 'Квитанція за світло', 'Electricity bill'),
   sc('✈️', 'Посадочный талон', 'Посадковий талон', 'Boarding pass'), sc('🍕', 'Заказ пиццы', 'Замовлення піци', 'Pizza order'),
   sc('📚', 'Расписание пар', 'Розклад пар', 'Class timetable'), sc('🛋', 'Диван с объявления', 'Диван з оголошення', 'A sofa from an ad'),
+  sc('🧾', 'Чек из ресторана на троих (платил один)', 'Чек з ресторану на трьох (платив один)', 'Dinner bill for three (one paid)'), sc('📉', 'Портфель акций −42 %', 'Портфель акцій −42 %', 'Stock portfolio −42 %'),
+  sc('🐶', 'Собака соседа в моих тапках', 'Собака сусіда в моїх капцях', 'The neighbour’s dog in my slippers'), sc('🛞', 'Вмятина «до» — для страховой', 'Вмʼятина «до» — для страхової', 'The dent “before” — for insurance'),
+  sc('🎟', 'Билет на концерт (не пошёл)', 'Квиток на концерт (не пішов)', 'Concert ticket (didn’t go)'), sc('🧸', 'Список желаний ребёнка (14 пунктов)', 'Список бажань дитини (14 пунктів)', 'A kid’s wishlist (14 items)'),
+  sc('🍲', 'Борщ, который удался', 'Борщ, який вдався', 'The borscht that worked out'), sc('🧳', 'Заявка о потере багажа', 'Заява про втрату багажу', 'Lost luggage claim'),
+  sc('🏠', 'Квартира мечты за 400 тыс $', 'Квартира мрії за 400 тис $', 'Dream flat for $400k'), sc('🧮', 'Расчёт: «если не есть 3 года — хватит на машину»', 'Розрахунок: «якщо не їсти 3 роки — вистачить на машину»', 'Maths: “skip food for 3 years = a car”'),
+  sc('📵', 'Скрин блокировки бывшего', 'Скрин блокування колишнього', 'Blocking an ex'), sc('🪴', 'Фикус: день 1 и день 90', 'Фікус: день 1 і день 90', 'Ficus: day 1 vs day 90'),
 ];
 const VOICES = [
   ['«Купи хлеба и не забудь про собаку»', '«Купи хліба й не забудь про собаку»', '“Buy bread and don’t forget the dog”'],
@@ -38,6 +46,13 @@ const VOICES = [
   ['Кто‑то поёт в душе. Фальшиво.', 'Хтось співає в душі. Фальшиво.', 'Someone singing in the shower. Off key.'],
   ['«Сколько можно ждать мастера?!»', '«Скільки можна чекати майстра?!»', '“How long do we wait for the repairman?!”'],
   ['«Мам, я сдал! Сдал!!»', '«Мам, я здав! Здав!!»', '“Mum, I passed! I passed!!”'],
+  ['«Это не я поцарапал машину, честно»', '«Це не я подряпав машину, чесно»', '“I didn’t scratch the car, honest”'],
+  ['Голосовое на 7 минут: тётя рассказывает про давление', 'Голосове на 7 хвилин: тітка розповідає про тиск', 'A 7‑minute voice note: auntie on her blood pressure'],
+  ['«Ты забыл выключить утюг. Я выключила. Целую»', '«Ти забув вимкнути праску. Я вимкнула. Цілую»', '“You left the iron on. I turned it off. Love you”'],
+  ['Собака лает три минуты, потом — тишина', 'Собака гавкає три хвилини, потім — тиша', 'A dog barks for three minutes, then silence'],
+  ['«Сынок, это мама. Перезвони. Это мама»', '«Синку, це мама. Передзвони. Це мама»', '“Son, it’s Mum. Call me back. It’s Mum”'],
+  ['Шёпот: «не бери трубку, это коллекторы»', 'Шепіт: «не бери слухавку, це колектори»', 'Whisper: “don’t answer, it’s the debt collectors”'],
+  ['Караоке в 2 ночи, все поют «Районы‑кварталы»', 'Караоке о 2 ночі, усі співають хором', 'Karaoke at 2 a.m., everyone singing'],
 ];
 const NOTES = [
   ['Подарки на НГ: маме — плед, папе — набор отвёрток, Лёше — ???', 'Подарунки на НР: мамі — плед, татові — набір викруток, Льоші — ???', 'New Year gifts: mum — a blanket, dad — screwdrivers, Lyosha — ???'],
@@ -50,6 +65,14 @@ const NOTES = [
   ['Ремонт: плитка 380/м², работа 450/м², клей 6 мешков', 'Ремонт: плитка 380/м², робота 450/м², клей 6 мішків', 'Renovation: tiles 380/m², labour 450/m², 6 bags of glue'],
   ['Сны: опять опоздал на поезд. К чему это?', 'Сни: знову запізнився на потяг. До чого це?', 'Dreams: missed the train again. What does it mean?'],
   ['Не звонить Оле до пятницы. Держаться.', 'Не дзвонити Олі до пʼятниці. Триматися.', 'Don’t call Olya till Friday. Stay strong.'],
+  ['Пароль от Wi‑Fi: на роутере. Роутер: у мамы.', 'Пароль від Wi‑Fi: на роутері. Роутер: у мами.', 'Wi‑Fi password: on the router. Router: at mum’s.'],
+  ['План на жизнь: 1) похудеть 2) уволиться 3) Бали', 'План на життя: 1) схуднути 2) звільнитися 3) Балі', 'Life plan: 1) lose weight 2) quit 3) Bali'],
+  ['Кому должен я: никому. Кто должен мне: все.', 'Кому винен я: нікому. Хто винен мені: усі.', 'Who I owe: nobody. Who owes me: everyone.'],
+  ['Шиномонтаж, который «не обманывает»: Игорь, 097…', 'Шиномонтаж, що «не дурить»: Ігор, 097…', 'The tyre guy who “doesn’t cheat”: Igor, 097…'],
+  ['Люди, которые взяли книги и не вернули: 7 имён', 'Люди, які взяли книжки й не повернули: 7 імен', 'People who borrowed books and never returned them: 7 names'],
+  ['Тост на свадьбу брата (черновик №4): «Помню, как в 2009‑м…»', 'Тост на весілля брата (чернетка №4): «Памʼятаю, як у 2009‑му…»', 'Toast for my brother’s wedding (draft 4): “I remember back in 2009…”'],
+  ['Что продать: велик, гитару, бывшего парня', 'Що продати: велик, гітару, колишнього', 'To sell: the bike, the guitar, my ex'],
+  ['Сон: я снова сдаю экзамен по химии. Мне 38.', 'Сон: я знову складаю іспит з хімії. Мені 38.', 'Dream: sitting a chemistry exam again. I’m 38.'],
 ];
 const DIPLOMA = [['Диплом_Иванов_v7_ФИНАЛ.docx', 'Диплом_Іванов_v7_ФІНАЛ.docx', 'Thesis_v7_FINAL.docx'], ['Презентация на защиту.pptx', 'Презентація на захист.pptx', 'Defence slides.pptx'], ['Курсовая по сопромату.docx', 'Курсова з опору матеріалів.docx', 'Strength of materials essay.docx'], ['Реферат «История края».doc', 'Реферат «Історія краю».doc', 'Report “Local history”.doc']];
 const MOVIES = ['Бригада', 'Матрица', 'Брат 2', 'Шрек', 'Аватар', 'Интерстеллар', 'Ирония судьбы', 'Начало', 'Гладиатор', 'Пираты Карибского моря', 'Титаник', 'Однажды в Голливуде'];
@@ -58,6 +81,57 @@ const GAMES = ['Сталкер', 'Ведьмак 3', 'GTA San Andreas', 'Counter
 const MOBGAMES = ['Brawl Starz', 'Clash of Clons', 'PUBG Mobail', 'Genshin Impakt', 'Стэндофф 2', 'Roblocks', 'Сабвэй Серф'];
 const CONGAMES = ['FEFA 24', 'Call of Duti', 'Grand Theft Avto V', 'Fortnait', 'God of Wor', 'Spider‑Mann 2', 'Mario Kart 8'];
 const SHOPS = ['Розетко', 'Фокстрот', 'Цитрус', 'Комфи', 'Эльдорадо', 'М.Видос'];
+
+// ---- more everyday content (folders below pick from these)
+const SEARCH = [
+  ['как понять, что сосед ворует электричество', 'як зрозуміти, що сусід краде електрику', 'how to tell the neighbour steals electricity'], ['болит левый бок что это', 'болить лівий бік що це', 'pain in left side what is it'],
+  ['курс доллара завтра', 'курс долара завтра', 'dollar rate tomorrow'], ['как вернуть бывшую за 3 дня', 'як повернути колишню за 3 дні', 'get your ex back in 3 days'],
+  ['можно ли коту огурец', 'чи можна коту огірок', 'can cats eat cucumber'], ['перекупить айфон и продать дороже', 'перекупити айфон і продати дорожче', 'flip an iPhone for profit'],
+  ['телефон упал в унитаз что делать', 'телефон впав в унітаз що робити', 'phone fell in the toilet what now'], ['почему кот ночью смотрит в угол', 'чому кіт уночі дивиться в кут', 'why does my cat stare at the corner at night'],
+  ['как удалить историю поиска навсегда', 'як видалити історію пошуку назавжди', 'delete search history forever'], ['сколько стоит забрать машину со штрафплощадки', 'скільки коштує забрати авто зі штрафмайданчика', 'impound release cost'],
+  ['рецепт борща как у бабушки', 'рецепт борщу як у бабусі', 'borscht recipe like grandma’s'], ['вернуть деньги за курс «стань миллионером»', 'повернути гроші за курс «стань мільйонером»', 'refund “become a millionaire” course'],
+  ['как починить кран без сантехника', 'як полагодити кран без сантехніка', 'fix a tap without a plumber'], ['что подарить девушке недорого', 'що подарувати дівчині недорого', 'cheap gift for girlfriend'],
+  ['кто звонил с номера 044…', 'хто дзвонив з номера 044…', 'who called from 044…'], ['сон где выпадают зубы', 'сон де випадають зуби', 'dream teeth falling out meaning'],
+];
+const CALLS = [
+  ['Мама — 47 пропущенных', 'Мама — 47 пропущених', 'Mum — 47 missed calls'], ['Неизвестный — в 3:12 ночи, 4 сек', 'Невідомий — о 3:12 ночі, 4 сек', 'Unknown — 3:12 a.m., 4 sec'],
+  ['«Банк» (спам) — 14 раз за день', '«Банк» (спам) — 14 разів за день', '“Bank” (spam) — 14 times a day'], ['Любимый ❤️ — 2 ч 14 мин', 'Коханий ❤️ — 2 год 14 хв', 'Love ❤️ — 2 h 14 min'],
+  ['Вася Гараж — «перезвони по колёсам»', 'Вася Гараж — «передзвони щодо коліс»', 'Vasya Garage — “call me about the tyres”'], ['Начальник — сброшен 6 раз', 'Начальник — скинуто 6 разів', 'Boss — declined 6 times'],
+  ['Доставка пиццы — каждую пятницу', 'Доставка піци — щопʼятниці', 'Pizza delivery — every Friday'], ['Бывшая — исходящий, 0 сек, 02:40', 'Колишня — вихідний, 0 сек, 02:40', 'Ex — outgoing, 0 sec, 02:40'],
+  ['«Не брать» — 9 пропущенных', '«Не брати» — 9 пропущених', '“Don’t answer” — 9 missed'], ['Бабушка — 1 ч 40 мин (про давление и соседку)', 'Бабуся — 1 год 40 хв (про тиск і сусідку)', 'Grandma — 1 h 40 min (blood pressure, the neighbour)'],
+];
+const PLACES = [
+  ['Дом', 'Дім', 'Home'], ['Работа', 'Робота', 'Work'], ['Та самая шаурма ★★★★★', 'Та сама шаурма ★★★★★', 'THE shawarma place ★★★★★'], ['Гараж', 'Гараж', 'Garage'],
+  ['Где оставил машину (3 года назад)', 'Де залишив машину (3 роки тому)', 'Where I parked (3 years ago)'], ['Тёща — объезжать', 'Теща — обʼїжджати', 'Mother‑in‑law — avoid'],
+  ['Рыбалка — клюёт тут', 'Риболовля — клює тут', 'Fishing — they bite here'], ['Шиномонтаж 24/7', 'Шиномонтаж 24/7', '24/7 tyre shop'], ['Секретное место (не говорить Свете)', 'Секретне місце (не казати Світлані)', 'Secret spot (don’t tell Sveta)'],
+  ['Барахолка по воскресеньям', 'Барахолка щонеділі', 'Sunday flea market'], ['Банкомат без комиссии', 'Банкомат без комісії', 'Fee‑free ATM'],
+];
+const CHATS = [
+  ['Родительский чат 5‑Б: 412 непрочитанных, «кто сдаёт на шторы?»', 'Батьківський чат 5‑Б: 412 непрочитаних, «хто здає на штори?»', 'Parents’ chat 5B: 412 unread, “who’s paying for curtains?”'],
+  ['ОСББ: «чья машина опять на газоне?!»', 'ОСББ: «чия машина знову на газоні?!»', 'HOA: “whose car is on the lawn AGAIN?!”'], ['Семья: мама переслала 14 открыток «Доброе утро»', 'Сімʼя: мама переслала 14 листівок «Доброго ранку»', 'Family: mum forwarded 14 “Good morning” cards'],
+  ['Работа: «можешь выйти в субботу? буквально на часик»', 'Робота: «можеш вийти в суботу? буквально на годинку»', 'Work: “can you come in Saturday? just an hour”'], ['Друзья: «го на шашлыки» — 230 сообщений, никто не поехал', 'Друзі: «го на шашлики» — 230 повідомлень, ніхто не поїхав', 'Friends: “BBQ?” — 230 messages, nobody went'],
+  ['Барахолка района: «отдам кота в добрые руки (кот против)»', 'Барахолка району: «віддам кота в добрі руки (кіт проти)»', 'Local flea chat: “free cat to good home (the cat disagrees)”'], ['Риелтор: «квартира как на фото, только меньше»', 'Ріелтор: «квартира як на фото, тільки менша»', 'Realtor: “like the photos, only smaller”'],
+  ['Перекупы города: «беру айфоны с iCloud, дорого»', 'Перекупи міста: «беру айфони з iCloud, дорого»', 'City flippers: “buying iCloud‑locked iPhones, top price”'], ['Клиенты: «а скидка будет? а если два?»', 'Клієнти: «а знижка буде? а якщо два?»', 'Customers: “any discount? what if I take two?”'],
+];
+const DOWNLOADS = [
+  ['Инструкция к мультиварке.pdf', 'Інструкція до мультиварки.pdf', 'Slow cooker manual.pdf'], ['Билет на поезд Киев — Одесса.pdf', 'Квиток на потяг Київ — Одеса.pdf', 'Train ticket Kyiv — Odesa.pdf'],
+  ['Договор_кредита_НЕ_ЧИТАТЬ.pdf', 'Договір_кредиту_НЕ_ЧИТАТИ.pdf', 'Loan_contract_DONT_READ.pdf'], ['Меню_доставки_суши.pdf', 'Меню_доставки_суші.pdf', 'Sushi_delivery_menu.pdf'],
+  ['Справка_для_бассейна.jpg', 'Довідка_для_басейну.jpg', 'Pool_medical_note.jpg'], ['Раскраска для ребёнка (40 стр.).pdf', 'Розмальовка для дитини (40 стор.).pdf', 'Kids colouring book (40 p).pdf'],
+  ['Курс «Инвестиции с нуля» (урок 1 из 40).mp4', 'Курс «Інвестиції з нуля» (урок 1 з 40).mp4', '“Investing from zero” (lesson 1 of 40).mp4'], ['Гороскоп_на_год.pdf', 'Гороскоп_на_рік.pdf', 'Horoscope_for_the_year.pdf'],
+];
+const MP3 = ['Linkin Perk — Numb (remix DJ Vasya).mp3', 'Неизвестен — Трек 01.mp3', 'Нокиа — рингтон.mid', 'Rammstain — Du hast (live 2001).mp3', 'Океан Ельзи — Без бою (концерт).mp3', 'Skuter — Hyper Hyper.mp3', 'Руки Вверх — 18 мне уже.mp3', 'Eminen — Lose Yourself.mp3', 'Тату — Нас не догонят.mp3', 'Gorillas — Feel Good Inc.mp3', 'Haddawey — What Is Love (Extended).mp3', 'Бумбокс — Вахтёрам.mp3', 'Неизвестен — Трек 14 (2).mp3'];
+const SMARTHOME = [
+  ['Входная дверь: открыта в 03:14, движения в квартире нет', 'Вхідні двері: відчинено о 03:14, руху в квартирі немає', 'Front door: opened at 03:14, no motion inside'],
+  ['Робот‑пылесос: застрял под диваном 412 раз', 'Робот‑пилосос: застряг під диваном 412 разів', 'Robot vacuum: stuck under the sofa 412 times'], ['Термостат: 26° круглый год', 'Термостат: 26° цілий рік', 'Thermostat: 26° all year'],
+  ['Умная колонка: 1 800 раз «включи звук дождя»', 'Розумна колонка: 1 800 разів «увімкни звук дощу»', 'Smart speaker: “play rain sounds” ×1,800'], ['Камера в прихожей: кот выходит в 02:00 и смотрит на дверь', 'Камера в передпокої: кіт виходить о 02:00 і дивиться на двері', 'Hall camera: the cat comes out at 2 a.m. and stares at the door'],
+  ['Датчик протечки: сработал 1 раз («это я цветы полил»)', 'Датчик протікання: спрацював 1 раз («це я квіти полив»)', 'Leak sensor: once (“I was watering the plants”)'], ['Свет в детской включался сам 6 ночей подряд', 'Світло в дитячій вмикалося само 6 ночей поспіль', 'The nursery light turned itself on 6 nights in a row'],
+];
+const INCIDENTS = [
+  ['Подрезали на кольце, водитель показал жест', 'Підрізали на колі, водій показав жест', 'Cut off at a roundabout, rude gesture included'], ['Яма на всю полосу — минус колпак', 'Яма на всю смугу — мінус ковпак', 'A lane‑wide pothole — goodbye hubcap'],
+  ['Голубь атакует капот 4 минуты', 'Голуб атакує капот 4 хвилини', 'A pigeon attacks the bonnet for 4 minutes'], ['Ехал за машиной без номеров 20 км', 'Їхав за машиною без номерів 20 км', 'Followed a car with no plates for 20 km'],
+  ['Лось на трассе ночью', 'Лось на трасі вночі', 'An elk on the highway at night'], ['Водитель автобуса поёт за рулём', 'Водій автобуса співає за кермом', 'A bus driver singing at the wheel'],
+  ['Самокатчик против трамвая (оба живы)', 'Самокатник проти трамвая (обидва живі)', 'Scooter vs tram (both fine)'], ['Гаишник машет — оказалось, просит прикурить', 'Поліцейський махає — виявилося, просить прикурити', 'A cop flags you down — wants a light'],
+];
 
 // a set of extra folders for each kind of device; each maker returns [folderName, files]
 function makers(ctx) {
@@ -131,21 +205,47 @@ function makers(ctx) {
     tapes: () => [T('Записи', 'Записи', 'Recordings'), r.sample([f(T('Запись с радио (1997)', 'Запис з радіо (1997)', 'Radio recording (1997)'), 'audio', 0, { dur: '45:00' }), f(T('Голос бабушки', 'Голос бабусі', 'Grandma’s voice'), 'audio', 0, { dur: '12:40', personal: true, text: T('«…а вот в наше время…»', '«…а от у наш час…»', '“…back in our day…”') }), f(T('Уроки английского, кассета 3', 'Уроки англійської, касета 3', 'English lessons, tape 3'), 'audio', 0, { dur: '30:00' }), f(T('Футбол 1998 (финал)', 'Футбол 1998 (фінал)', 'Football 1998 (final)'), 'video', 0, { dur: '1:50:00', scene: sc('⚽', 'Футбол', 'Футбол', 'Football') }), f(T('Мультфильмы с ТВ', 'Мультфільми з ТБ', 'Cartoons off the TV'), 'video', 0, { dur: '2:40:00', scene: sc('📺', 'Мультики', 'Мультики', 'Cartoons') })], r.int(1, 3))],
     pods: () => [T('Подкасты', 'Подкасти', 'Podcasts'), Array.from({ length: r.int(2, 5) }, (_, i) => f(`${T('Выпуск', 'Випуск', 'Episode')} ${r.int(1, 240)}.mp3`, 'audio', +(r.float(20, 90)).toFixed(0), { dur: `${r.int(30, 120)}:00` }))],
     books: () => [T('Аудиокниги', 'Аудіокниги', 'Audiobooks'), [f(T('Мастер и Маргарита (12 ч)', 'Майстер і Маргарита (12 год)', 'The Master and Margarita (12 h)'), 'audio', 340, { dur: '12:00:00' }), f(T('Богатый папа, бедный папа', 'Багатий тато, бідний тато', 'Rich Dad Poor Dad'), 'audio', 210, { dur: '7:30:00' })]],
+    // ---- more everyday folders
+    calls: () => [T('Звонки', 'Дзвінки', 'Calls'), [txt(T('Журнал вызовов.log', 'Журнал викликів.log', 'Call log.log'), r.sample(CALLS, r.int(3, 6)).map(tx).join(' · '), { personal: true })]],
+    search: () => [T('Браузер', 'Браузер', 'Browser'), [txt(T('История поиска.txt', 'Історія пошуку.txt', 'Search history.txt'), r.sample(SEARCH, r.int(4, 7)).map((x) => `«${tx(x)}»`).join(' · '))]],
+    alarms: () => { const h = r.int(5, 8); const t = (m) => `${h}:${pad(m, 2)}`; return [T('Часы', 'Годинник', 'Clock'), [txt(T('Будильники.txt', 'Будильники.txt', 'Alarms.txt'), `${t(0)} · ${t(5)} · ${t(10)} · ${t(15)} · ${t(20)} ${T('«ВСТАВАЙ»', '«ВСТАВАЙ»', '“GET UP”')} · ${t(25)} ${T('«ПОСЛЕДНИЙ»', '«ОСТАННІЙ»', '“LAST ONE”')} · ${t(40)} ${T('«ВСЁ, ОПОЗДАЛ»', '«УСЕ, ЗАПІЗНИВСЯ»', '“THAT’S IT, LATE”')}`)]]; },
+    places: () => [T('Карты', 'Мапи', 'Maps'), [txt(T('Сохранённые места.kml', 'Збережені місця.kml', 'Saved places.kml'), r.sample(PLACES, r.int(4, 7)).map(tx).join(' · '), { personal: true })]],
+    chats: () => [T('Чаты', 'Чати', 'Chats'), r.sample(CHATS, r.int(2, 4)).map((c, i) => txt(`chat_${pad(r.int(1, 999), 3)}.txt`, tx(c)))],
+    downloads: () => [T('Загрузки', 'Завантаження', 'Downloads'), r.sample(DOWNLOADS, r.int(2, 4)).map((d) => f(tx(d), 'doc', +(r.float(0.2, 40)).toFixed(1)))],
+    newfolder: () => [T('Новая папка (3)', 'Нова папка (3)', 'New folder (3)'), [f(T('Новая папка (2)', 'Нова папка (2)', 'New folder (2)'), 'archive', 0.1), txt(T('Новый текстовый документ.txt', 'Новий текстовий документ.txt', 'New Text Document.txt'), T('аааааа', 'аааааа', 'aaaaaa')), doc(T('бухгалтерия_НАСТОЯЩАЯ.xlsx', 'бухгалтерія_СПРАВЖНЯ.xlsx', 'accounts_REAL.xlsx'), T('Вторая бухгалтерия. Первая — для налоговой.', 'Друга бухгалтерія. Перша — для податкової.', 'The second set of books. The first one is for the tax office.'), { personal: true })]],
+    mp3: () => [T('Музыка', 'Музика', 'Music'), r.sample(MP3, r.int(4, 8)).map((m) => f(m, 'audio', +(r.float(3, 9)).toFixed(1), { dur: `${r.int(2, 6)}:${pad(r.int(0, 59), 2)}` }))],
+    memes: () => [T('Мемы', 'Меми', 'Memes'), [f(T(`Мемы (${r.int(300, 4000)} шт.)`, `Меми (${r.int(300, 4000)} шт.)`, `Memes (${r.int(300, 4000)})`), 'archive', r.int(200, 3000)), f(T('мем_про_перекупов.jpg', 'мем_про_перекупів.jpg', 'flipper_meme.jpg'), 'photo', 0.2, { scene: sc('😂', '«Купил за 100 — продал за 100. Зато опыт»', '«Купив за 100 — продав за 100. Зате досвід»', '“Bought for 100, sold for 100. Experience though”') })]],
+    resume: () => [T('Поиск работы', 'Пошук роботи', 'Job hunt'), [doc(T('Резюме_v12.docx', 'Резюме_v12.docx', 'CV_v12.docx'), T('Стрессоустойчивость: высокая. Опыт: «разный».', 'Стресостійкість: висока. Досвід: «різний».', 'Stress tolerance: high. Experience: “varied”.'), { personal: true }), doc(T('Сопроводительное_шаблон.docx', 'Супровідний_шаблон.docx', 'Cover_letter_template.docx'), T('«Всю жизнь мечтал работать именно в [НАЗВАНИЕ КОМПАНИИ]».', '«Усе життя мріяв працювати саме в [НАЗВА КОМПАНІЇ]».', '“I have always dreamed of working at [COMPANY NAME].”'))]],
+    freelance: () => [T('Фриланс', 'Фриланс', 'Freelance'), [doc(T('Счёт_клиенту (не оплачен 3 мес).pdf', 'Рахунок_клієнту (не оплачено 3 міс).pdf', 'Invoice (unpaid 3 months).pdf'), T(`${firm}: «оплатим на следующей неделе» — с марта.`, `${firm}: «оплатимо наступного тижня» — з березня.`, `${firm}: “we’ll pay next week” — since March.`)), doc(T('ТЗ_клиента.docx', 'ТЗ_клієнта.docx', 'Client_brief.docx'), T('«Сделайте как у Apple, но ярче. Бюджет 50 $. Вчера».', '«Зробіть як в Apple, але яскравіше. Бюджет 50 $. Вчора».', '“Make it like Apple, but brighter. Budget $50. Yesterday.”'))]],
+    wedding: () => [T('Свадьба', 'Весілля', 'Wedding'), [vid(T('Свадьба_монтаж_FINAL.mp4', 'Весілля_монтаж_FINAL.mp4', 'Wedding_edit_FINAL.mp4'), r.int(3000, 9000), `2:${pad(r.int(10, 59), 2)}:00`, { personal: true }), doc(T('Конкурсы тамады.docx', 'Конкурси тамади.docx', 'MC games.docx'), T('Конкурс №7: «Найди невесту по коленке». Не повторять.', 'Конкурс №7: «Знайди наречену по коліну». Не повторювати.', 'Game #7: “find the bride by her knee”. Never again.'))]],
+    nokia: () => [T('Бэкап Nokia (2004)', 'Бекап Nokia (2004)', 'Nokia backup (2004)'), [txt(T('Контакты.vcf', 'Контакти.vcf', 'Contacts.vcf'), T('«Вася Гараж», «Мама», «НЕ БРАТЬ», «Лёха Долг», «Такси», «Света Вторая»', '«Вася Гараж», «Мама», «НЕ БРАТИ», «Льоха Борг», «Таксі», «Світлана Друга»', '“Vasya Garage”, “Mum”, “DON’T ANSWER”, “Lyokha Debt”, “Taxi”, “Sveta Two”')), txt('SMS.txt', T('«Пополни счёт, я в роуминге» · «Ты где?» · «Абонент звонил вам 3 раза»', '«Поповни рахунок, я в роумінгу» · «Ти де?» · «Абонент дзвонив вам 3 рази»', '“Top me up, I’m roaming” · “Where are you?” · “This number called you 3 times”')), f('Snake II — рекорд 4120', 'game', 0.01)]],
+    hr: () => [T('Отдел кадров', 'Відділ кадрів', 'HR'), [doc(T('Ведомость_зарплата.xlsx', 'Відомість_зарплата.xlsx', 'Payroll.xlsx'), T(`${firm}: 23 сотрудника, у директора «премия» больше, чем у всех вместе.`, `${firm}: 23 працівники, у директора «премія» більша, ніж у всіх разом.`, `${firm}: 23 staff; the director’s “bonus” beats everyone else combined.`), { personal: true }), f(T(`Резюме кандидатов (${r.int(20, 140)})`, `Резюме кандидатів (${r.int(20, 140)})`, `Applicant CVs (${r.int(20, 140)})`), 'archive', r.int(10, 90), { personal: true }), doc(T('Приказ о премиях (отменён).docx', 'Наказ про премії (скасовано).docx', 'Bonus order (cancelled).docx'), T('«В связи с кризисом…»', '«У звʼязку з кризою…»', '“Due to the crisis…”'))]],
+    contracts: () => [T('Договоры', 'Договори', 'Contracts'), [doc(T(`Договор поставки №${r.int(10, 400)}.pdf`, `Договір поставки №${r.int(10, 400)}.pdf`, `Supply contract #${r.int(10, 400)}.pdf`), T('Штраф за просрочку: 0,1 % в день. Просрочка: 214 дней.', 'Штраф за прострочку: 0,1 % на день. Прострочка: 214 днів.', 'Late fee 0.1 %/day. Days late: 214.')), doc(T('Акт сверки.xlsx', 'Акт звірки.xlsx', 'Reconciliation.xlsx'), T('Не сходится на 3 копейки. Ищем второй месяц.', 'Не сходиться на 3 копійки. Шукаємо другий місяць.', 'Off by 3 cents. Second month of searching.'))]],
+    smarthome: () => [T('Умный дом', 'Розумний дім', 'Smart home'), [txt(T('События.log', 'Події.log', 'Events.log'), r.sample(SMARTHOME, r.int(3, 5)).map(tx).join(' · '))]],
+    plex: () => [T('Медиасервер', 'Медіасервер', 'Media server'), [f(T(`Фильмы (${r.int(80, 600)})`, `Фільми (${r.int(80, 600)})`, `Movies (${r.int(80, 600)})`), 'archive', r.int(200000, 900000)), f(T('Мультики для детей', 'Мультики для дітей', 'Cartoons for the kids'), 'archive', r.int(20000, 90000)), f(T('Сериалы «на потом» (не начаты)', 'Серіали «на потім» (не почато)', 'Shows “for later” (never started)'), 'archive', r.int(50000, 300000))]],
+    wedshoot: () => [T('Заказ: свадьба', 'Замовлення: весілля', 'Job: wedding'), [f(T(`Свадьба_Ковальчуки (${r.int(400, 1200)} кадров)`, `Весілля_Ковальчуки (${r.int(400, 1200)} кадрів)`, `Kovalchuk_wedding (${r.int(400, 1200)} shots)`), 'archive', r.int(8000, 30000), { personal: true }), txt(T('заметка.txt', 'нотатка.txt', 'note.txt'), T('Невеста моргает на каждом третьем кадре. Отдать до пятницы, иначе — суд.', 'Наречена кліпає на кожному третьому кадрі. Віддати до пʼятниці, інакше — суд.', 'The bride blinks in every third frame. Deliver by Friday or it’s court.'))]],
+    wildlife: () => [T('Природа', 'Природа', 'Wildlife'), ph(r.int(3, 8), 'DSC_', 'Telephoto', [sc('🦉', 'Сова на ветке', 'Сова на гілці', 'An owl on a branch'), sc('🦊', 'Лиса у дороги', 'Лисиця біля дороги', 'A fox by the road'), sc('🦢', 'Лебеди на озере', 'Лебеді на озері', 'Swans on a lake'), sc('🐿', 'Белка ворует орех', 'Білка краде горіх', 'A squirrel stealing a nut')], { real: 0.4 })],
+    astro: () => [T('Астрофото', 'Астрофото', 'Astro'), [f(T('Луна 1/4000 с.CR2', 'Місяць 1/4000 с.CR2', 'Moon 1-4000s.CR2'), 'photo', 28, { scene: sc('🌕', 'Луна в кратерах', 'Місяць у кратерах', 'The Moon, every crater') }), f(T('Млечный путь (стек 60 кадров).tif', 'Чумацький шлях (стек 60 кадрів).tif', 'Milky Way (60‑frame stack).tif'), 'photo', 240, { scene: sc('🌌', 'Млечный путь над полем', 'Чумацький шлях над полем', 'The Milky Way over a field') }), txt(T('странное.txt', 'дивне.txt', 'weird.txt'), T('Кадр 41: яркая точка остановилась и повернула. Самолёты так не умеют.', 'Кадр 41: яскрава точка зупинилася й повернула. Літаки так не вміють.', 'Frame 41: a bright dot stopped and turned. Planes can’t do that.'))]],
+    roofs: () => [T('Заказы', 'Замовлення', 'Jobs'), [vid(T('Осмотр крыши для страховой.MP4', 'Огляд даху для страхової.MP4', 'Roof survey for insurance.MP4'), r.int(400, 2000), `${r.int(3, 12)}:00`, { scene: sc('🏚', 'Крыша дачи с дырой', 'Дах дачі з діркою', 'A cottage roof with a hole') }), txt(T('Рыбные места.kml', 'Рибні місця.kml', 'Fishing spots.kml'), T('6 меток на водохранилище, у одной — «ТУТ СОМ, НИКОМУ».', '6 міток на водосховищі, біля однієї — «ТУТ СОМ, НІКОМУ».', '6 pins on the reservoir, one says “CATFISH HERE, TELL NO ONE”.'))]],
+    incidents: () => [T('События', 'Події', 'Events'), r.sample(INCIDENTS, r.int(2, 4)).map((x) => vid(`EVENT_${year}${pad(r.int(101, 1231))}_${pad(r.int(0, 2359))}.MP4`, r.int(30, 120), '1:00', { dashcam: true, text: tx(x) }))],
+    saves: () => [T('Сохранения', 'Збереження', 'Saves'), [f(T(`Сохранение: ${r.int(120, 900)} ч, ур. 99 — до сих пор пролог`, `Збереження: ${r.int(120, 900)} год, рів. 99 — досі пролог`, `Save: ${r.int(120, 900)} h, lvl 99 — still in the prologue`), 'game', 2), f(T('Сохранение «НЕ УДАЛЯТЬ — ПАПИНО»', 'Збереження «НЕ ВИДАЛЯТИ — ТАТОВЕ»', 'Save “DO NOT DELETE — DAD’S”'), 'game', 1, { personal: true })]],
+    carmusic: () => [T('Музыка в машину', 'Музика в машину', 'Car music'), [f(T(`Музыка в машину 2009 (${r.int(200, 900)} треков)`, `Музика в машину 2009 (${r.int(200, 900)} треків)`, `Car music 2009 (${r.int(200, 900)} tracks)`), 'audio', r.int(1000, 6000)), f(T('Дискотека 90‑х (лучшее).mp3', 'Дискотека 90‑х (найкраще).mp3', '90s disco (best of).mp3'), 'audio', 120, { dur: '1:20:00' })]],
+    portable: () => [T('Portable', 'Portable', 'Portable'), [f('Opera 9.64 Portable', 'exe', 12), f('Total Commander 7.04a', 'exe', 4), f('uTorrent 1.8.2', 'exe', 0.3), txt(T('ключи.txt', 'ключі.txt', 'keys.txt'), T('Серийники к программам 2008 года. Половина не работает.', 'Серійники до програм 2008 року. Половина не працює.', 'Serials for 2008 software. Half don’t work.'))]],
   };
 }
 const POOLS = {
-  phone: ['shots', 'telegram', 'viber', 'voice', 'notes', 'passnote', 'calendar', 'health', 'apps', 'videos', 'selfies', 'family'],
-  tablet: ['shots', 'telegram', 'notes', 'apps', 'videos', 'family', 'study', 'books'],
-  laptop: ['projects', 'torrents', 'backups', 'browser', 'study', 'edit', 'work', 'design', 'tax', 'pcgames', 'family'],
-  hdd: ['projects', 'torrents', 'backups', 'edit', 'work', 'design', 'pcgames', 'family', 'cctv'],
-  nas: ['backups', 'torrents', 'cctv', 'family', 'work'],
-  office: ['officeMisc', 'cctv', 'work', 'tax'], tape: ['officeMisc'],
-  usb: ['usbmix', 'family', 'projects', 'study'], secure: ['usbmix', 'work', 'tax'],
-  card: ['raw', 'timelapse', 'family'], camera: ['raw', 'timelapse', 'family'], drone: ['aerial', 'timelapse'],
-  console: ['clips', 'trophies'], dashcam: ['parking', 'gps'],
+  phone: ['shots', 'telegram', 'viber', 'voice', 'notes', 'passnote', 'calendar', 'health', 'apps', 'videos', 'selfies', 'family', 'calls', 'search', 'alarms', 'places', 'chats', 'downloads'],
+  tablet: ['shots', 'telegram', 'notes', 'apps', 'videos', 'family', 'study', 'books', 'search', 'downloads', 'chats'],
+  laptop: ['projects', 'torrents', 'backups', 'browser', 'study', 'edit', 'work', 'design', 'tax', 'pcgames', 'family', 'newfolder', 'mp3', 'memes', 'resume', 'freelance', 'wedding', 'nokia', 'search', 'downloads'],
+  hdd: ['projects', 'torrents', 'backups', 'edit', 'work', 'design', 'pcgames', 'family', 'cctv', 'newfolder', 'mp3', 'memes', 'wedding', 'nokia', 'plex'],
+  nas: ['backups', 'torrents', 'cctv', 'family', 'work', 'smarthome', 'plex'],
+  office: ['officeMisc', 'cctv', 'work', 'tax', 'hr', 'contracts', 'newfolder'], tape: ['officeMisc'],
+  usb: ['usbmix', 'family', 'projects', 'study', 'carmusic', 'portable', 'mp3', 'resume'], secure: ['usbmix', 'work', 'tax', 'contracts', 'hr'],
+  card: ['raw', 'timelapse', 'family', 'wedshoot', 'wildlife', 'astro'], camera: ['raw', 'timelapse', 'family', 'wedshoot', 'wildlife', 'astro'], drone: ['aerial', 'timelapse', 'roofs'],
+  console: ['clips', 'trophies', 'saves'], dashcam: ['parking', 'gps', 'incidents'],
   cd: ['oldcd'], dvd: ['tapes', 'oldcd'], gamecd: ['oldcd'], floppy: ['floppy'], cassette: ['tapes'], vhs: ['tapes'], ipod: ['pods', 'books'], dictaphone: ['voice'],
 };
-const COUNT = { phone: [3, 6], tablet: [2, 4], laptop: [3, 6], hdd: [2, 5], nas: [2, 4], office: [1, 3], usb: [1, 2], secure: [1, 2], card: [1, 2], camera: [1, 2], drone: [1, 2], console: [1, 2], dashcam: [1, 2] };
+const COUNT = { phone: [4, 8], tablet: [3, 5], laptop: [4, 8], hdd: [3, 6], nas: [2, 5], office: [2, 4], usb: [1, 3], secure: [1, 3], card: [1, 3], camera: [1, 3], drone: [1, 2], console: [1, 3], dashcam: [1, 3] };
 
 // ---------------------------------------------------------------- loot: one‑time finds with actions
 // act(it, data) returns { msg, cls }; money in USD
@@ -321,6 +421,7 @@ export function lootAct(it, files, key, a) {
   if (!L || !d || data['loot_' + key]) return null;
   data['loot_' + key] = a;
   const res = L.act(it, d, a) || { msg: '', cls: '' };
+  if (res.retry) { delete data['loot_' + key]; return res; } // e.g. not enough money yet — the find stays
   stat('lootFound');
   if (res.cls === 'g') notify('market', T('Находка на устройстве', 'Знахідка на пристрої', 'Device find'), res.msg, { noBadge: true });
   emit('inv'); emit('money');
@@ -623,6 +724,132 @@ LOOT.push(
       if (a === 'heirs') { pay(d.usd, T('Семья владельца облигаций', 'Родина власника облігацій', 'The bondholder’s family')); addXP(35); stat('goodDeeds'); return ok(T(`Семья получила выплату по бумагам деда и отблагодарила вас: +${fmt(d.usd)}`, `Родина отримала виплату за паперами діда й віддячила вам: +${fmt(d.usd)}`, `The family got their grandfather’s payout and thanked you: +${fmt(d.usd)}`)); }
       if (d.caught) { const fine = Math.round(d.cash * 0.6); policeFine('fraud', fine, T('предъявление чужих ценных бумаг', 'предʼявлення чужих цінних паперів', 'presenting someone else’s securities')); return bad(T(`Банк запросил оригиналы и паспорт владельца. Протокол и штраф ${fmt(fine)}.`, `Банк запросив оригінали й паспорт власника. Протокол і штраф ${fmt(fine)}.`, `The bank asked for originals and the owner’s passport. A report and a fine of ${fmt(fine)}.`)); }
       earn(d.cash, 'other', T('Выплата по старым облигациям', 'Виплата за старими облігаціями', 'Old bonds paid out')); return ok(T(`Холдинг выплатил по бумагам без вопросов. +${fmt(d.cash)}`, `Холдинг виплатив за паперами без питань. +${fmt(d.cash)}`, `The holding paid out, no questions asked. +${fmt(d.cash)}`));
+    } },
+);
+
+// ---------------------------------------------------------------- finds that turn into real things
+// A locker receipt, a pawn ticket, a pre‑order, a key to a garage, a flash sale… — these put actual items into the
+// inventory (or ask for money first). `retry: true` keeps the find unused when the player can't pay yet.
+const gift = (seed, o, paid = 0) => { const x = makeItem(new RNG('loot|' + seed), { fakeRate: 0, ...o }); addItem(x, paid, 'found'); return x; };
+// paid finds must be worth more than the price: try a few rolls until the real value clears `minUsd`
+const giftWorth = (seed, o, minUsd, paid = 0) => {
+  let best = null, bv = -1;
+  for (let k = 0; k < 30; k++) {
+    const x = makeItem(new RNG(`loot|${seed}|${k}`), { fakeRate: 0, ...o });
+    if (o.cond) x.cond = Math.max(x.cond, o.cond);
+    if (o.worn) x.cond = Math.min(x.cond, 60);
+    const v = itemValue(x, G.s.player.city, 'true');
+    if (v >= minUsd) { best = x; break; }
+    if (v > bv) { bv = v; best = x; }
+  }
+  addItem(best, paid, 'found'); return best;
+};
+const GPUS = () => MODELS.filter((m) => m.cat === 'electronics' && /^(Nvidio|Radeen)$/.test(m.brand));
+const name = (x) => itemTitle(x);
+const short = (usd) => ({ msg: T(`Не хватает денег: нужно ${fmt(usd)}. Находка подождёт.`, `Не вистачає грошей: треба ${fmt(usd)}. Знахідка почекає.`, `Not enough money: you need ${fmt(usd)}. The find will wait.`), cls: 'r', retry: true });
+LOOT.push(
+  { key: 'locker', kinds: ['phone', 'tablet'], p: 0.035, ic: '🧳',
+    roll: (r) => ({ seed: r.int(1, 1e9), num: r.int(100, 399), sting: r.chance(0.22), usd: Math.round(r.float(20, 60)), fine: Math.round(r.float(80, 250)) }),
+    file: (d) => [T(`Квитанция_камера_хранения_№${d.num}.jpg`, `Квитанція_камера_схову_№${d.num}.jpg`, `Left_luggage_receipt_${d.num}.jpg`), 'photo', T(`Квитанция автоматической камеры хранения на вокзале, ячейка №${d.num}. Оплачено до конца недели, код — на фото. Хозяин, похоже, так и не вернулся.`, `Квитанція автоматичної камери схову на вокзалі, комірка №${d.num}. Оплачено до кінця тижня, код — на фото. Власник, схоже, так і не повернувся.`, `A station left‑luggage receipt, locker #${d.num}. Paid till the end of the week, the code is in the photo. The owner never came back.`)],
+    acts: (d) => [['open', T('🧳 Забрать, что в ячейке', '🧳 Забрати, що в комірці', '🧳 Take what’s in the locker')], ['lost', T(`🏢 Отдать в бюро находок · ~${fmt(d.usd)}`, `🏢 Віддати в бюро знахідок · ~${fmt(d.usd)}`, `🏢 Hand it to lost & found · ~${fmt(d.usd)}`)]],
+    act: (it, d, a) => {
+      if (a === 'lost') { pay(d.usd, T('Бюро находок: благодарность хозяина', 'Бюро знахідок: подяка власника', 'Lost & found: the owner’s thanks')); addXP(20); stat('goodDeeds'); return ok(T(`Хозяин нашёлся и оставил благодарность: +${fmt(d.usd)}`, `Власник знайшовся й залишив подяку: +${fmt(d.usd)}`, `The owner turned up and left a thank‑you: +${fmt(d.usd)}`)); }
+      if (d.sting) { policeFine('stolen', d.fine, T('вещи из чужой ячейки', 'речі з чужої комірки', 'someone else’s locker')); return bad(T(`У ячейки ждали двое в штатском: вещи в розыске. Штраф ${fmt(d.fine)}.`, `Біля комірки чекали двоє в цивільному: речі в розшуку. Штраф ${fmt(d.fine)}.`, `Two plain‑clothes officers were waiting: the contents were wanted. Fine ${fmt(d.fine)}.`)); }
+      const x = gift(d.seed, { cats: ['bags', 'watches', 'electronics', 'jewelry', 'perfume', 'sneakers'], maxVal: 900 });
+      return ok(T(`В ячейке — ${name(x)}. Уже в инвентаре.`, `У комірці — ${name(x)}. Уже в інвентарі.`, `Inside: ${name(x)}. It’s in your inventory.`));
+    } },
+  { key: 'pawn', kinds: ['phone', 'laptop', 'usb', 'tablet'], p: 0.035, ic: '🏷',
+    roll: (r) => ({ seed: r.int(1, 1e9), fee: Math.round(r.float(40, 380)), fake: r.chance(0.2), days: r.int(1, 3) }),
+    file: (d) => [T('Залоговый_билет.pdf', 'Заставний_квиток.pdf', 'Pawn_ticket.pdf'), 'doc', T(`Залоговый билет ломбарда: вещь сдана под залог, выкуп — ${fmt(d.fee)}, срок истекает через ${d.days} дн. Билет на предъявителя, хозяин о нём явно забыл.`, `Заставний квиток ломбарду: річ здано під заставу, викуп — ${fmt(d.fee)}, строк спливає за ${d.days} дн. Квиток на предʼявника, власник про нього явно забув.`, `A pawn ticket: redeem for ${fmt(d.fee)}, expires in ${d.days} days. Bearer ticket — the owner forgot about it.`)],
+    acts: (d) => [['buy', T(`💵 Выкупить за ${fmt(d.fee)}`, `💵 Викупити за ${fmt(d.fee)}`, `💵 Redeem for ${fmt(d.fee)}`)], ['skip', T('🤷 Пусть ломбард продаёт', '🤷 Хай ломбард продає', '🤷 Let the pawnshop sell it')]],
+    act: (it, d, a) => {
+      if (a === 'skip') return { msg: T('Билет просрочился. Кто‑то купит это на витрине ломбарда.', 'Квиток прострочився. Хтось купить це на вітрині ломбарду.', 'The ticket expired. Someone will buy it in the shop window.'), cls: '' };
+      if (!spend(d.fee, 'other', T('Выкуп из ломбарда', 'Викуп із ломбарду', 'Pawn redemption'))) return short(d.fee);
+      const o = { cats: ['watches', 'jewelry', 'electronics', 'instruments'], minVal: d.fee * 1.3, maxVal: d.fee * 3, cond: 70 };
+      const x = d.fake ? gift(d.seed, { ...o, fakeRate: 1 }, d.fee) : giftWorth(d.seed, o, d.fee * 1.3, d.fee);
+      return d.fake ? bad(T(`Выкупили ${name(x)}… а дома лупа показала: подделка. Ломбард тоже не заметил.`, `Викупили ${name(x)}… а вдома лупа показала: підробка. Ломбард теж не помітив.`, `You redeemed ${name(x)}… then the loupe at home said: fake. The pawnshop missed it too.`)) : ok(T(`Выкуплено: ${name(x)} — стоит заметно больше залога. В инвентаре.`, `Викуплено: ${name(x)} — коштує помітно більше застави. В інвентарі.`, `Redeemed: ${name(x)} — worth well over the loan. In your inventory.`));
+    } },
+  { key: 'preorder', kinds: ['phone', 'laptop', 'tablet'], p: 0.025, ic: '📦',
+    roll: (r) => ({ seed: r.int(1, 1e9), usd: Math.round(r.float(30, 120)), caught: r.chance(0.45), fine: Math.round(r.float(150, 450)), code: r.int(1000, 9999) }),
+    file: (d) => [T('Предзаказ_подтверждение.pdf', 'Передзамовлення_підтвердження.pdf', 'Preorder_confirmation.pdf'), 'doc', T(`Предзаказ нового смартфона оплачен полностью. Код получения в пункте выдачи — ${d.code}. Забрать до 20‑го.`, `Передзамовлення нового смартфона оплачено повністю. Код отримання в пункті видачі — ${d.code}. Забрати до 20‑го.`, `A new phone pre‑order, paid in full. Pickup code ${d.code}. Collect by the 20th.`)],
+    acts: (d) => [['owner', T(`📞 Сообщить владельцу · ~${fmt(d.usd)}`, `📞 Повідомити власнику · ~${fmt(d.usd)}`, `📞 Tell the owner · ~${fmt(d.usd)}`)], ['take', T('📦 Забрать по коду самому', '📦 Забрати за кодом самому', '📦 Pick it up yourself'), 'red']],
+    act: (it, d, a) => {
+      if (a === 'owner') { pay(d.usd, T('Благодарность за предзаказ', 'Подяка за передзамовлення', 'Thanks for the pre‑order')); addXP(25); stat('goodDeeds'); addReview(5, T('Предупредил, что мой предзаказ остался на старом телефоне. Успел забрать!', 'Попередив, що моє передзамовлення лишилося на старому телефоні. Встиг забрати!', 'Warned me my pre‑order was on my old phone. Got it in time!')); return ok(T(`Хозяин успел забрать телефон и перевёл +${fmt(d.usd)}`, `Власник встиг забрати телефон і переказав +${fmt(d.usd)}`, `The owner collected it in time and sent +${fmt(d.usd)}`)); }
+      if (d.caught) { policeFine('fraud', d.fine, T('получение чужого заказа', 'отримання чужого замовлення', 'collecting someone else’s order')); return bad(T(`Хозяин уже заблокировал заказ: на выдаче попросили паспорт и вызвали охрану. Штраф ${fmt(d.fine)}.`, `Власник уже заблокував замовлення: на видачі попросили паспорт і викликали охорону. Штраф ${fmt(d.fine)}.`, `The owner had blocked it: they asked for ID and called security. Fine ${fmt(d.fine)}.`)); }
+      const x = gift(d.seed, { cats: ['phones'], minVal: 400 }); x.box = true; x.sealed = true; x.cond = 100;
+      return ok(T(`Выдали без вопросов: ${name(x)}, запечатан. В инвентаре.`, `Видали без питань: ${name(x)}, запечатаний. В інвентарі.`, `Handed over, no questions: ${name(x)}, sealed. In your inventory.`));
+    } },
+  { key: 'garage31', kinds: ['phone', 'usb', 'laptop'], p: 0.025, ic: '🔑',
+    roll: (r) => ({ seed: r.int(1, 1e9), two: r.chance(0.45), usd: Math.round(r.float(40, 150)) }),
+    file: () => [T('ключ_гараж_31.jpg', 'ключ_гараж_31.jpg', 'key_garage_31.jpg'), 'photo', T('Фото ключа и записка: «Гараж №31 в кооперативе „Мотор“. Там дедово добро — забирай что хочешь, я уехал насовсем». Записке три года.', 'Фото ключа й записка: «Гараж №31 у кооперативі „Мотор“. Там дідове добро — забирай що хочеш, я поїхав назовсім». Записці три роки.', 'A photo of a key and a note: “Garage 31, ‘Motor’ co‑op. Grandpa’s stuff — take what you like, I’ve left for good.” The note is three years old.')],
+    acts: (d) => [['go', T('🔦 Съездить в гараж', '🔦 Зʼїздити в гараж', '🔦 Go to the garage')], ['call', T(`📞 Найти автора записки · ~${fmt(d.usd)}`, `📞 Знайти автора записки · ~${fmt(d.usd)}`, `📞 Find who wrote it · ~${fmt(d.usd)}`)]],
+    act: (it, d, a) => {
+      if (a === 'call') { pay(d.usd, T('«За честность»', '«За чесність»', '“For honesty”')); addXP(25); stat('goodDeeds'); return ok(T(`Он давно в другой стране, попросил всё раздать и прислал «за честность» +${fmt(d.usd)}`, `Він давно в іншій країні, попросив усе роздати й надіслав «за чесність» +${fmt(d.usd)}`, `He lives abroad now, asked you to give it all away and sent +${fmt(d.usd)} “for honesty”`)); }
+      const cats = ['bikes', 'antiques', 'instruments', 'misc', 'collectibles', 'gear'];
+      const xs = [gift(d.seed, { cats, maxVal: 1200 })]; if (d.two) xs.push(gift(d.seed + 1, { cats, maxVal: 800 }));
+      return ok(T(`Пыль, банки с огурцами и… ${xs.map(name).join(', ')}. Уже в инвентаре.`, `Пил, банки з огірками і… ${xs.map(name).join(', ')}. Уже в інвентарі.`, `Dust, jars of pickles and… ${xs.map(name).join(', ')}. In your inventory.`));
+    } },
+  { key: 'giveaway', kinds: ['laptop', 'phone', 'tablet'], p: 0.025, ic: '🎸',
+    roll: (r) => ({ seed: r.int(1, 1e9), gone: r.chance(0.3) }),
+    file: () => [T('Отдам_даром_черновик.txt', 'Віддам_даром_чернетка.txt', 'Free_to_good_home_draft.txt'), 'text', T('Черновик объявления: «Переезжаю, отдам гитару и всё по музыке даром, лишь бы не на помойку». Так и не опубликовано, адрес в конце.', 'Чернетка оголошення: «Переїжджаю, віддам гітару й усе для музики даром, аби не на смітник». Так і не опубліковано, адреса в кінці.', 'A draft ad: “Moving, giving away my guitar and music gear for free, just not to the dump.” Never posted; the address is at the end.')],
+    acts: () => [['go', T('🎸 Приехать и забрать', '🎸 Приїхати й забрати', '🎸 Go and pick it up')]],
+    act: (it, d) => {
+      if (d.gone) return { msg: T('Хозяин уже раздал всё соседям, но налил чаю и рассказал про гастроли 1998 года.', 'Власник уже роздав усе сусідам, але налив чаю й розповів про гастролі 1998 року.', 'He’d already given it all to the neighbours, but poured you tea and told you about the 1998 tour.'), cls: '' };
+      const x = gift(d.seed, { cats: ['instruments'], maxVal: 1500 }); addXP(15);
+      return ok(T(`«Пусть играет у хороших людей». ${name(x)} — в инвентаре.`, `«Хай грає в добрих людей». ${name(x)} — в інвентарі.`, `“Let it play for good people.” ${name(x)} is in your inventory.`));
+    } },
+  { key: 'collection', kinds: ['laptop', 'tablet', 'usb'], p: 0.025, ic: '🃏',
+    roll: (r) => ({ seed: r.int(1, 1e9), usd: Math.round(r.float(80, 300)) }),
+    file: (d) => [T('Опись_коллекции.xlsx', 'Опис_колекції.xlsx', 'Collection_inventory.xlsx'), 'doc', T(`Опись коллекции: карточки, комиксы, редкие выпуски с пометкой «★». Внизу: «Продать за ${fmt(d.usd)}, пока мама не видит». Номер телефона автора — там же.`, `Опис колекції: картки, комікси, рідкісні випуски з позначкою «★». Внизу: «Продати за ${fmt(d.usd)}, поки мама не бачить». Номер автора — там само.`, `A collection list: cards, comics, rare issues marked “★”. At the bottom: “Sell for ${fmt(d.usd)} before Mum sees.” The author’s number is there too.`)],
+    acts: (d) => [['buy', T(`💵 Выкупить коллекцию · ${fmt(d.usd)}`, `💵 Викупити колекцію · ${fmt(d.usd)}`, `💵 Buy the collection · ${fmt(d.usd)}`)], ['skip', T('🤷 Не интересно', '🤷 Не цікаво', '🤷 Not interested')]],
+    act: (it, d, a) => {
+      if (a === 'skip') return { msg: T('Пропустили. Через неделю коллекцию продали на аукционе втрое дороже.', 'Пропустили. За тиждень колекцію продали на аукціоні втричі дорожче.', 'Skipped. A week later it went for triple at an auction.'), cls: '' };
+      if (!spend(d.usd, 'other', T('Покупка коллекции', 'Купівля колекції', 'Bought a collection'))) return short(d.usd);
+      const cats = ['cards', 'comics', 'collectibles', 'toys'];
+      const xs = [giftWorth(d.seed, { cats, minVal: d.usd * 0.7, maxVal: d.usd * 1.8, cond: 70 }, d.usd * 0.75, Math.round(d.usd / 2)), giftWorth(d.seed + 7, { cats, minVal: d.usd * 0.5, maxVal: d.usd * 1.4, cond: 70 }, d.usd * 0.55, Math.round(d.usd / 2))];
+      return ok(T(`Сделка в подъезде. В инвентаре: ${xs.map(name).join(', ')}.`, `Угода в підʼїзді. В інвентарі: ${xs.map(name).join(', ')}.`, `Deal done on the stairs. In your inventory: ${xs.map(name).join(', ')}.`));
+    } },
+  { key: 'minefarm', kinds: ['laptop', 'hdd', 'usb'], p: 0.03, ic: '⛏',
+    roll: (r) => ({ seed: r.int(1, 1e9), fee: Math.round(r.float(150, 500)), worn: r.chance(0.35) }),
+    file: (d) => [T('ферма_распродажа.txt', 'ферма_розпродаж.txt', 'farm_selloff.txt'), 'text', T(`Переписка: «Ферму сворачиваем, видеокарты отдаём за полцены — ${fmt(d.fee)} штука, только быстро, пока не пришли за светом». Адрес склада.`, `Листування: «Ферму згортаємо, відеокарти віддаємо за півціни — ${fmt(d.fee)} штука, тільки швидко, поки не прийшли за світло». Адреса складу.`, `Chat: “Shutting the farm down, GPUs at half price — ${fmt(d.fee)} each, quick before they come about the power bill.” A warehouse address.`)],
+    acts: (d) => [['buy', T(`🖥 Купить видеокарту · ${fmt(d.fee)}`, `🖥 Купити відеокарту · ${fmt(d.fee)}`, `🖥 Buy a GPU · ${fmt(d.fee)}`)], ['skip', T('🤷 Майнинговые — не беру', '🤷 Майнінгові — не беру', '🤷 No mining cards for me')]],
+    act: (it, d, a) => {
+      if (a === 'skip') return { msg: T('Разумно. Хотя…', 'Розумно. Хоча…', 'Sensible. Although…'), cls: '' };
+      if (!spend(d.fee, 'other', T('Видеокарта с фермы', 'Відеокарта з ферми', 'A GPU from a mining farm'))) return short(d.fee);
+      const gp = GPUS(), fit = gp.filter((m) => modelValue(m) >= d.fee * 1.4 && modelValue(m) <= d.fee * 2.8);
+      const m = (fit.length ? fit : gp)[d.seed % (fit.length || gp.length)];
+      const x = giftWorth(d.seed, { model: m.id, cond: d.worn ? 0 : 85, worn: d.worn }, d.fee * (d.worn ? 1.1 : 1.3), d.fee);
+      if (d.worn) { return ok(T(`${name(x)} — после двух лет майнинга: вентиляторы шумят, но работает. В инвентаре.`, `${name(x)} — після двох років майнінгу: вентилятори шумлять, але працює. В інвентарі.`, `${name(x)} — two years of mining: loud fans, still works. In your inventory.`)); }
+      return ok(T(`${name(x)} почти как новая. В инвентаре.`, `${name(x)} майже як нова. В інвентарі.`, `${name(x)}, almost like new. In your inventory.`));
+    } },
+  { key: 'receipt', kinds: ['phone', 'laptop', 'tablet', 'console'], p: 0.07, ic: '🧾',
+    roll: () => ({}),
+    file: () => [T('Чек_и_гарантия.pdf', 'Чек_і_гарантія.pdf', 'Receipt_and_warranty.pdf'), 'doc', T('Скан чека и гарантийного талона на это самое устройство. С документами покупатели платят больше.', 'Скан чека й гарантійного талона на цей самий пристрій. З документами покупці платять більше.', 'A scan of the receipt and warranty for this very device. Buyers pay more with papers.')],
+    acts: () => [['print', T('🖨 Распечатать и приложить к вещи', '🖨 Роздрукувати й додати до речі', '🖨 Print and keep with the item')]],
+    act: (it) => {
+      if (it.docs) return { msg: T('Документы и так были — теперь есть ещё и копия.', 'Документи й так були — тепер є ще й копія.', 'It already had papers — now there’s a copy too.'), cls: '' };
+      it.docs = true; addXP(5);
+      return ok(T('Чек и гарантия приложены: с документами вещь стоит дороже.', 'Чек і гарантію додано: з документами річ коштує дорожче.', 'Receipt and warranty attached: it’s worth more with papers.'));
+    } },
+  { key: 'heirloom', kinds: ['laptop', 'office', 'usb', 'phone'], p: 0.025, ic: '🏺',
+    roll: (r) => ({ seed: r.int(1, 1e9), usd: Math.round(r.float(60, 250)) }),
+    file: () => [T('Опись_вещей_бабушки.docx', 'Опис_речей_бабусі.docx', 'Grandmas_items_list.docx'), 'doc', T('Опись вещей из бабушкиной квартиры для оценщика: самовар, часы с боем, сервиз. Напротив одной позиции: «ЭТО ПРОДАТЬ ТИХО, родне не говорить». И номер внука.', 'Опис речей із бабусиної квартири для оцінювача: самовар, годинник із боєм, сервіз. Навпроти однієї позиції: «ЦЕ ПРОДАТИ ТИХО, рідні не казати». І номер онука.', 'A valuer’s list of items from grandma’s flat: a samovar, a chiming clock, a tea set. Next to one line: “SELL THIS QUIETLY, don’t tell the family.” And the grandson’s number.')],
+    acts: (d) => [['family', T(`👵 Предупредить семью · ~${fmt(d.usd)}`, `👵 Попередити родину · ~${fmt(d.usd)}`, `👵 Warn the family · ~${fmt(d.usd)}`)], ['buy', T(`💵 Купить у внука · ${fmt(d.usd * 2)}`, `💵 Купити в онука · ${fmt(d.usd * 2)}`, `💵 Buy from the grandson · ${fmt(d.usd * 2)}`), 'red']],
+    act: (it, d, a) => {
+      if (a === 'family') { pay(d.usd, T('Семья: благодарность', 'Родина: подяка', 'The family’s thanks')); addXP(30); stat('goodDeeds'); return ok(T(`Внук хотел тайком продать фамильную вещь. Семья благодарна: +${fmt(d.usd)}`, `Онук хотів потай продати родинну річ. Родина вдячна: +${fmt(d.usd)}`, `The grandson meant to sell an heirloom behind their backs. The family thanks you: +${fmt(d.usd)}`)); }
+      if (!spend(d.usd * 2, 'other', T('Покупка у внука', 'Купівля в онука', 'Bought from the grandson'))) return short(d.usd * 2);
+      const x = giftWorth(d.seed, { cats: ['antiques', 'watches', 'art'], minVal: d.usd * 2.6, maxVal: d.usd * 6, cond: 70 }, d.usd * 2.6, d.usd * 2);
+      return ok(T(`Внук нервничал и торопился. ${name(x)} — в инвентаре. Бабушке не говорите.`, `Онук нервував і поспішав. ${name(x)} — в інвентарі. Бабусі не кажіть.`, `The grandson was nervous and in a hurry. ${name(x)} is in your inventory. Don’t tell grandma.`));
+    } },
+  { key: 'raffle', kinds: ['phone'], p: 0.03, ic: '👟',
+    roll: (r) => ({ seed: r.int(1, 1e9), fee: Math.round(r.float(120, 260)) }),
+    file: (d) => [T('Выигрыш_в_раффле.png', 'Виграш_у_раффлі.png', 'Raffle_win.png'), 'photo', T(`Скрин: «Поздравляем! Вы выиграли право купить лимитированные кроссовки по ретейлу — ${fmt(d.fee)}». Оплатить можно ещё сегодня.`, `Скрин: «Вітаємо! Ви виграли право купити лімітовані кросівки за ретейлом — ${fmt(d.fee)}». Оплатити можна ще сьогодні.`, `Screenshot: “Congrats! You won the right to buy limited sneakers at retail — ${fmt(d.fee)}.” Payable today.`)],
+    acts: (d) => [['buy', T(`👟 Оплатить по ретейлу · ${fmt(d.fee)}`, `👟 Оплатити за ретейлом · ${fmt(d.fee)}`, `👟 Pay retail · ${fmt(d.fee)}`)], ['skip', T('🤷 Пропустить', '🤷 Пропустити', '🤷 Skip')]],
+    act: (it, d, a) => {
+      if (a === 'skip') return { msg: T('Пропустили. Ресейл этой пары — втрое дороже. Ну и ладно.', 'Пропустили. Ресейл цієї пари — утричі дорожче. Ну й гаразд.', 'Skipped. That pair resells for triple. Oh well.'), cls: '' };
+      if (!spend(d.fee, 'other', T('Кроссовки по ретейлу', 'Кросівки за ретейлом', 'Sneakers at retail'))) return short(d.fee);
+      const x = giftWorth(d.seed, { cats: ['sneakers'], minVal: d.fee * 1.5, cond: 100 }, d.fee * 1.4, d.fee); x.box = true;
+      return ok(T(`Курьер привёз ${name(x)} — новые, в коробке. Ресейл — заметно выше.`, `Курʼєр привіз ${name(x)} — нові, у коробці. Ресейл — помітно вищий.`, `The courier brought ${name(x)} — new, boxed. Resale is well above retail.`));
     } },
 );
 
