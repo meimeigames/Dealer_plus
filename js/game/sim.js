@@ -26,6 +26,7 @@ import { dv } from './difficulty.js';
 import { tgTick } from './tg.js';
 import { ymTick, supTick, cargoArrived } from './shops2.js';
 import { bizHourly, bizDaily } from './business.js';
+import { venueHourly, vordersTick } from './venues.js';
 import { storyTick, ensureDaily } from './quests.js';
 import { dailyEconomy, initEconomy } from './economy.js';
 import { dailyNews, seedNews } from './news.js';
@@ -33,6 +34,7 @@ import { addItem, notify, stat, log, snapshotWorth } from './player.js';
 import { itemTitle } from './items.js';
 import { onlineTick } from './online.js';
 import { bannedTick } from './banned.js';
+import { burnTick } from './shadow.js';
 
 let timer = null;
 let paused = false;
@@ -131,6 +133,7 @@ export function tick(fast = false) {
   accTick();
   hotTick();
   bannedTick();
+  burnTick();
   pcvTick();
   parkTick();
   taxRemindTick();
@@ -152,7 +155,8 @@ export function tick(fast = false) {
   bankTick();
   numbersTick();
   if (s.t % 10 === 0 && !catching) needsTick();
-  if (s.t % 60 === 0) { bizHourly(); stocksTick(); mineHourly(); }
+  if (s.t % 60 === 0) { bizHourly(); venueHourly(); stocksTick(); mineHourly(); }
+  if (s.t % 10 === 0) vordersTick();
   if (s.t % 15 === 0) storyTick();
   const d = Math.floor(s.t / 1440);
   if (d !== prevDay) dailyRollover();

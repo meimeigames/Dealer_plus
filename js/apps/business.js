@@ -12,6 +12,8 @@ import { PROPS, RENO, STYLES, ROLES, staffTrait, shopById, propById, openShop, c
 import { itemTitle, itemSub, itemValue, isVehicle } from '../game/items.js';
 import { getItem, spend } from '../game/player.js';
 import { sfx } from '../ui/sfx.js';
+import { venuesSection, venueView, venueActions } from './venues_app.js';
+import { venueById } from '../game/venues.js';
 
 const SH = { tab: 'shelf' };
 
@@ -32,6 +34,7 @@ function bizMain() {
   else if (!s.biz.shops.length) h += `<div class="card"><h3>${T('Открой свой бизнес', 'Відкрий свій бізнес', 'Start your business')}</h3><div class="d">${T('Придумай название и выбери первую точку продаж. Точки покупаются или арендуются в «Недвижимость» → «Коммерция».', 'Придумай назву й обери першу точку продажу. Точки купуються або орендуються в «Нерухомість» → «Комерція».', 'Name it and pick your first spot. Spots are bought or leased in Real estate → Commercial.')}</div></div>`;
   if (canOpen) h += `<div class="card"><h3>${T('Точка продаж', 'Точка продажу', 'Sales point')}</h3>${freeProps.length ? freeProps.map((p) => { const d = PROPS.find((x) => x.id === p.def); return `<div class="kv"><span>${d.icon} ${esc(L(d.n))} · ${esc(L(CITY[p.city].name))}</span><button class="btn xs" data-a="newshop" data-v="${p.id}">${T('Открыть', 'Відкрити', 'Open')}</button></div>`; }).join('') : `<div class="d">${T('У тебя пока нет свободных точек.', 'У тебе поки немає вільних точок.', 'No free spots yet.')}</div>`}<button class="btn block mt" data-a="open" data-v="realty">${T('Выбрать в «Недвижимости»', 'Обрати в «Нерухомості»', 'Pick in Real estate')}</button></div>`;
   for (const sh of s.biz.shops) h += `<div class="card click" data-a="go" data-v="shop" data-id="${sh.id}">${storefront(sh)}<div class="row between"><b>${esc(sh.name)}</b><span class="tag ${sh.open ? 'g' : 'r'}">${sh.open ? T('открыт', 'відкрито', 'open') : T('закрыт', 'закрито', 'closed')}</span></div><div class="small m">${countryOf(sh.city).flag} ${esc(L(CITY[sh.city].name))} · ${T('полки', 'полиці', 'shelves')} ${shelf(sh).length}/${sh.slots} · ${T('выручка', 'виручка', 'revenue')} ${fmt(sh.rev)} · ${T('продано', 'продано', 'sold')} ${sh.sold}</div></div>`;
+  if (canOpen) h += venuesSection();
   return h;
 }
 
@@ -68,9 +71,10 @@ function shopView(p) {
 export const businessApp = {
   id: 'business', glyph: 'store', lvl: 5,
   name: ['Бизнес', 'Бізнес', 'Business'], colors: ['#14a085', '#0b6b58'],
-  views: { main: bizMain, shop: shopView },
-  title: (v, p) => (v === 'shop' ? shopById(p.id)?.name || '' : T('Бизнес', 'Бізнес', 'Business')),
+  views: { main: bizMain, shop: shopView, venue: venueView },
+  title: (v, p) => (v === 'shop' ? shopById(p.id)?.name || '' : v === 'venue' ? venueById(p.id)?.name || '' : T('Бизнес', 'Бізнес', 'Business')),
   actions: {
+    ...venueActions,
     rename: async () => {
       const v = await sheet(`<h2>${T('Название компании', 'Назва компанії', 'Company name')}</h2><input class="input" id="bn" maxlength="28" value="${esc(G.s.biz.name)}" placeholder="${T('Например, «Перекуп Plus»', 'Наприклад, «Перекуп Plus»', 'e.g. “Flip Plus”')}"><button class="btn block mt" id="bnok">OK</button>`, { after(el) { el.querySelector('#bnok').onclick = () => resolveSheet(el.querySelector('#bn').value.trim()); } });
       if (v) { G.s.biz.name = v; rerender(); }

@@ -53,7 +53,7 @@ export function postsOf(c) {
 function newsPosts(c) {
   const s = G.s, w = Math.floor(s.t / WINDOW);
   const L3 = [
-    [T('Появилась оптовая сделка на {n} телефонов! Смотрите в «Поставщике».', 'Зʼявилася оптова угода на {n} телефонів! Дивіться в «Постачальнику».', 'A wholesale deal for {n} phones just dropped! Check the Supplier app.'), 'supplier'],
+    [T('Появилась оптовая сделка на {n} телефонов! Смотрите в «Ё.Маркете» → «АлиБаоЭкспресс».', 'Зʼявилася оптова угода на {n} телефонів! Дивіться в «Ё.Маркеті» → «АліБаоЕкспрес».', 'A wholesale deal for {n} phones just dropped! Check Yo.Market → AliBaoExpress.'), 'ymarket'],
     [T('Юань сегодня {r} — самое время закупаться.', 'Юань сьогодні {r} — саме час закуповуватися.', 'Yuan today {r} — time to stock up.'), null],
     [T('Таможня ужесточила проверки на ввоз партий телефонов. Декларируйте!', 'Митниця посилила перевірки на ввезення партій телефонів. Декларуйте!', 'Customs is tightening checks on phone lots. Declare them!'), 'travel'],
     [T('В «Неделю железа» видеокарты на −45%. Сборщики, налетайте.', 'У «Тиждень заліза» відеокарти на −45%. Збирачі, налітайте.', 'GPUs −45% during Hardware week. Builders, go.'), 'hw'],

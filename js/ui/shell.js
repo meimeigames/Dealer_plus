@@ -5,6 +5,7 @@ import { $, $$, esc, clamp, pad2 } from '../core/util.js';
 import { fmt, curCode, rate, priceStep, symOf, fmtNum, toLoc, fromLoc } from '../core/money.js';
 import { CITY, countryOf } from '../data/world.js';
 import { icon } from './icons.js';
+import { shadowLocked, burnTodo, burn } from '../game/shadow.js';
 import { clearUnread, netWorth } from '../game/player.js';
 import { sfx } from './sfx.js';
 import { morphHTML } from './morph.js';
@@ -56,23 +57,47 @@ export function iconHTML(a, dock = false, removable = false) {
 export function renderHome() { renderHomeScreen(); }
 
 // ---------------------------------------------------------------- app window
+// running apps: leaving an app keeps its screen (views, scroll, a snapshot for the app switcher);
+// opening it again from the home screen or the switcher brings you back to the same place
+UI.recent = [];
+function remember() {
+  const a = UI.app; if (!a) return;
+  const body = $('.abody');
+  UI.scroll[UI.view] = body?.scrollTop || 0;
+  const w = $('#appwin');
+  const snap = w ? w.innerHTML.slice(0, 400000).replace(/\sid="[^"]*"/g, '').replace(/\sdata-a="/g, ' data-x="') : ''; // a picture, not live controls
+  UI.recent = [{ id: a.id, stack: UI.stack.map((x) => ({ view: x.view, params: { ...x.params } })), view: UI.view, params: { ...UI.params }, scroll: { ...UI.scroll }, top: body?.scrollTop || 0, snap, at: Date.now() }, ...UI.recent.filter((r) => r.id !== a.id)].slice(0, 10);
+}
+export const recentApps = () => UI.recent.filter((r) => UI.apps[r.id]);
+export function forgetApp(id) { UI.recent = UI.recent.filter((r) => r.id !== id); }
 export function openApp(id, view = 'main', params = {}) {
   const a = UI.apps[id];
   if (!a) return;
   if (G.s?.jail && G.s.jail.until > G.s.t) { toast(T('Телефон изъят — вы в обезьяннике', 'Телефон вилучено — ви в мавпятнику', 'Your phone is confiscated'), 'r'); return; }
   if (!isInstalled(id)) { toast(T('Сначала скачайте приложение в App Store', 'Спочатку завантажте застосунок в App Store', 'Download it from the App Store first')); sfx('err'); if (id !== 'appstore' && UI.apps.appstore) openApp('appstore', 'app', { id }); return; }
   if (appLocked(a)) { toast(T(`Откроется на ${a.lvl} уровне`, `Відкриється на ${a.lvl} рівні`, `Unlocks at level ${a.lvl}`)); sfx('err'); return; }
-  if (APP_META[id]?.secret && !vpnActive()) { toast(T('Нет защищённого соединения — включите VPN', 'Немає захищеного зʼєднання — увімкніть VPN', 'No secure connection — turn on the VPN'), 'r'); sfx('err'); return; }
+  if (APP_META[id]?.secret) {
+    if (shadowLocked()) { const td = burnTodo(); toast(T(`Вас вычислили: ${td.wifi ? '✓' : '✗'} смените Wi‑Fi · ${td.moved ? '✓' : '✗'} уезжайте в ${td.lvl >= 2 ? 'другую страну' : 'другой город'}`, `Вас вирахували: ${td.wifi ? '✓' : '✗'} змініть Wi‑Fi · ${td.moved ? '✓' : '✗'} поїдьте в ${td.lvl >= 2 ? 'іншу країну' : 'інше місто'}`, `You’re traced: ${td.wifi ? '✓' : '✗'} switch Wi‑Fi · ${td.moved ? '✓' : '✗'} leave for another ${td.lvl >= 2 ? 'country' : 'city'}`), 'r'); sfx('err'); return; }
+    if (!vpnActive() && !params?.__burnOk) {
+      confirmBox(T('Без VPN?', 'Без VPN?', 'No VPN?'), T('Скрытое приложение без VPN засветит ваш адрес. Придётся сменить Wi‑Fi и уехать на время в другой город (в другой раз — в другую страну).', 'Приховане застосування без VPN засвітить вашу адресу. Доведеться змінити Wi‑Fi й поїхати на час в інше місто (наступного разу — в іншу країну).', 'A hidden app without a VPN leaks your address. You’ll have to switch Wi‑Fi and leave for another city for a while (another country next time).'), T('Всё равно войти', 'Все одно увійти', 'Go in anyway'), T('Отмена', 'Скасувати', 'Cancel'), true).then((ok) => { if (!ok) return; burn(id); sfx('err'); openApp(id, view, { ...params, __burnOk: 1 }); });
+      return;
+    }
+  }
   closeSheet();
-  UI.app = a; UI.view = view; UI.params = params; UI.stack = [{ view, params }];
-  if (a.onOpen) a.onOpen(params);
+  if (UI.app && UI.app.id !== id) { remember(); if (UI.app.onClose) UI.app.onClose(); }
+  // a plain open (home icon, switcher) of an app that is still running → resume where it was left
+  const r = view === 'main' && !Object.keys(params || {}).length ? UI.recent.find((x) => x.id === id) : null;
+  UI.app = a;
+  if (r) { UI.stack = r.stack.map((x) => ({ ...x })); UI.view = r.view; UI.params = r.params; Object.assign(UI.scroll, r.scroll); }
+  else { UI.view = view; UI.params = params; UI.stack = [{ view, params }]; }
+  if (a.onOpen) a.onOpen(UI.params);
   clearUnread(id);
   const w = $('#appwin');
   w.classList.remove('hidden', 'closing');
   w.style.animation = 'none'; void w.offsetWidth; w.style.animation = '';
   document.body.classList.add('in-app');
   sfx('tap');
-  render(true);
+  render(true, r ? r.top : 0);
 }
 export function go(view, params = {}) {
   UI.scroll[UI.view] = $('.abody')?.scrollTop || 0;
@@ -93,6 +118,7 @@ export function back() {
 export function home() {
   closeSheet();
   if (!UI.app) return;
+  remember();
   if (UI.app.onClose) UI.app.onClose();
   const w = $('#appwin');
   w.classList.add('closing');
@@ -392,13 +418,62 @@ export function initShell() {
   document.addEventListener('touchstart', () => markBusy(900), { passive: true });
   document.addEventListener('touchmove', () => markBusy(900), { passive: true });
   document.addEventListener('pointerdown', () => markBusy(350), { passive: true });
-  $('#homebar').addEventListener('click', () => { if ($('#mini-layer').children.length) return; if (UI.app) home(); });
-  // swipe up from the bottom edge to go home
+  // the bar at the bottom: a tap goes back, a swipe up leaves the app; on the home screen a swipe up opens the
+  // app switcher (running apps: open one where you left it, or swipe it away)
+  const hb = $('#homebar');
+  let hy = null, hx = null;
+  const busyMini = () => !!$('#mini-layer').children.length;
+  hb.addEventListener('pointerdown', (e) => { hy = e.clientY; hx = e.clientX; hb.setPointerCapture?.(e.pointerId); });
+  hb.addEventListener('pointerup', (e) => {
+    if (hy == null || busyMini()) { hy = null; return; }
+    const dy = hy - e.clientY, dx = Math.abs(e.clientX - hx); hy = null;
+    if (dy > 28 && dy > dx) { swipeUp(); return; }
+    if (dy < 10 && dx < 14) { if ($('#switcher-layer')) closeSwitcher(); else if (UI.app) back(); }
+  });
+  hb.addEventListener('pointercancel', () => { hy = null; });
+  // a swipe up starting anywhere along the bottom edge works too
   let sy = null;
-  $('#screen').addEventListener('touchstart', (e) => { const t = e.touches[0]; const r = $('#screen').getBoundingClientRect(); sy = t.clientY > r.bottom - 34 ? t.clientY : null; }, { passive: true });
-  $('#screen').addEventListener('touchend', (e) => { if (sy == null) return; const t = e.changedTouches[0]; if (sy - t.clientY > 60 && UI.app && !$('#mini-layer').children.length) home(); sy = null; }, { passive: true });
+  $('#screen').addEventListener('touchstart', (e) => { const t = e.touches[0]; const r = $('#screen').getBoundingClientRect(); sy = t.clientY > r.bottom - 30 && !e.target.closest('#homebar') ? t.clientY : null; }, { passive: true });
+  $('#screen').addEventListener('touchend', (e) => { if (sy == null) return; const t = e.changedTouches[0]; if (sy - t.clientY > 60 && !busyMini()) swipeUp(); sy = null; }, { passive: true });
   on('banner', banner);
   on('badges', () => { if (!UI.app) renderHome(); });
   on('levelup', (lvl) => { toast(T(`🎉 Уровень ${lvl}!`, `🎉 Рівень ${lvl}!`, `🎉 Level ${lvl}!`), 'g'); sfx('win'); if (!UI.app) renderHome(); });
 }
 export function refreshAll() { renderStatus(); if (UI.app) rerender(); else renderHome(); }
+
+// ---------------------------------------------------------------- app switcher
+function swipeUp() {
+  if ($('#switcher-layer')) { closeSwitcher(); return; }
+  if (UI.app) { home(); return; }
+  openSwitcher();
+}
+export function closeSwitcher() { const l = $('#switcher-layer'); if (!l) return; l.classList.add('out'); setTimeout(() => l.remove(), 180); document.body.classList.remove('in-switch'); }
+function openSwitcher() {
+  closeSheet();
+  const list = recentApps();
+  const layer = document.createElement('div');
+  layer.id = 'switcher-layer';
+  const scr = $('#screen');
+  const W = scr.clientWidth, H = scr.clientHeight, k = 0.62;
+  layer.innerHTML = list.length
+    ? `<div class="sw-track">${list.map((r) => { const a = UI.apps[r.id]; const [c1, c2] = appColors(a); return `<div class="sw-card" data-id="${r.id}"><div class="sw-head"><span class="sw-ic" style="--a:${c1};--b:${c2};--g:${a.glyphColor || '#fff'}">${icon(a.glyph)}</span><b>${esc(appName(a))}</b></div><div class="sw-shot" style="width:${Math.round(W * k)}px;height:${Math.round(H * k)}px"><div class="sw-inner" style="width:${W}px;height:${H}px;transform:scale(${k})">${r.snap || ''}</div></div></div>`; }).join('')}</div><div class="sw-hint">${T('Смахните карточку вверх, чтобы закрыть приложение', 'Змахніть картку вгору, щоб закрити застосунок', 'Swipe a card up to close the app')}</div>`
+    : `<div class="sw-empty">${T('Нет открытых приложений', 'Немає відкритих застосунків', 'No open apps')}</div>`;
+  scr.appendChild(layer);
+  document.body.classList.add('in-switch');
+  layer.addEventListener('click', (e) => { if (!e.target.closest('.sw-card')) closeSwitcher(); });
+  layer.querySelectorAll('.sw-card').forEach((card) => {
+    let y0 = null, x0 = 0, moved = false;
+    card.addEventListener('pointerdown', (e) => { y0 = e.clientY; x0 = e.clientX; moved = false; card.setPointerCapture?.(e.pointerId); });
+    card.addEventListener('pointermove', (e) => { if (y0 == null) return; const dy = Math.min(0, e.clientY - y0); if (Math.abs(e.clientX - x0) > 12 && !moved) { y0 = null; card.style.transform = ''; return; } if (dy < -8) { moved = true; card.style.transform = `translateY(${dy}px)`; card.style.opacity = String(Math.max(0.2, 1 + dy / 300)); } });
+    const end = (e) => {
+      if (y0 == null) return;
+      const dy = e.clientY - y0; y0 = null;
+      if (moved && dy < -90) { forgetApp(card.dataset.id); card.classList.add('gone'); sfx('tap'); setTimeout(() => { card.remove(); if (!layer.querySelector('.sw-card')) closeSwitcher(); }, 200); return; }
+      card.style.transform = ''; card.style.opacity = '';
+      if (!moved) { closeSwitcher(); openApp(card.dataset.id); }
+    };
+    card.addEventListener('pointerup', end);
+    card.addEventListener('pointercancel', () => { y0 = null; card.style.transform = ''; card.style.opacity = ''; });
+  });
+  sfx('tap');
+}

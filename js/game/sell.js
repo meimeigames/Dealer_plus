@@ -27,6 +27,17 @@ export const PLATFORMS = {
   lux: { fee: 0.2, rate: 0.9, n: () => 'ReaLux', lvl: 4, bonus: 1.08, cats: [...LUXURY_CATS, 'sneakers', 'cards', 'comics', 'collectibles', 'cars'] },
 };
 export const myListing = (itemId) => G.s.listings.find((l) => l.itemId === itemId);
+// how buyers on the classifieds price things, as a share of the market price
+//  offer — the first offer;  max — the most they'll pay without being talked into more
+const BUYER_K = {
+  greedy: { offer: [0.6, 0.75], max: 0.86 }, polite: { offer: [0.84, 0.95], max: 0.98 }, reseller: { offer: [0.5, 0.64], max: 0.76 },
+  collector: { offer: [0.88, 1.0], max: 1.08 }, newbie: { offer: [0.84, 0.96], max: 1.0 }, haggler: { offer: [0.62, 0.78], max: 0.9 },
+  rich: { offer: [0.93, 1.02], max: 1.05 }, angry: { offer: [0.66, 0.8], max: 0.88 }, scammer: { offer: [1, 1.1], max: 1.2 },
+};
+// Charisma (0–100): grows with good haggling and sales, the "Haggling" upgrade adds to it. It lifts what buyers
+// will pay (up to +15 %) and how much each argument in a haggle moves them.
+export const charisma = () => clamp((G.s.charisma ?? 10) + upLevel('haggle') * 8, 0, 100);
+export function addCharisma(d) { G.s.charisma = clamp((G.s.charisma ?? 10) + d, 0, 100); }
 
 // What a buyer believes the item is worth (sees disclosed + visible problems)
 export function buyerView(it, l, city) {
@@ -105,13 +116,17 @@ export function newBuyerChat(it, l, val) {
   const collectible = it.rar >= 2 || ['cards', 'comics', 'collectibles', 'antiques', 'art', 'toys', 'watches'].includes(it.cat);
   const b = makeBuyer(rng, s.player.city, { collectible, noScam: s.level < 2 });
   const tr = TRAITS[b.trait];
-  // offer relative to asking price but bounded by their perceived value
-  const cap = val * tr.max * (1 + upLevel('haggle') * 0.02);
-  let offer = Math.min(l.price * rng.float(tr.offer[0], tr.offer[1]), cap);
+  // Buyers know the market: their first offer is anchored to the market price (or your price, if it is lower),
+  // not to what you ask; the most they will pay is about the market price. Above it only charisma and
+  // haggling get you — so buying for 30 and listing for 90 doesn't work by itself.
+  const k = BUYER_K[b.trait] || BUYER_K.polite;
+  const ch = charisma() / 100;
+  const cap = val * k.max * (1 + 0.15 * ch);
+  let offer = Math.min(l.price, val) * rng.float(k.offer[0], k.offer[1]);
   if (b.trait === 'scammer') offer = l.price * rng.float(1.0, 1.1);
   if (offer >= l.price * 0.985) offer = l.price;
-  offer = nicePrice(Math.max(1, offer), countryOf(s.player.city).cur);
-  const maxPay = b.trait === 'scammer' ? l.price * 1.2 : Math.max(offer, Math.min(cap * rng.float(0.97, 1.06), l.price * 1.02));
+  offer = nicePrice(Math.max(1, Math.min(offer, b.trait === 'scammer' ? Infinity : cap)), countryOf(s.player.city).cur);
+  const maxPay = b.trait === 'scammer' ? l.price * 1.2 : Math.max(offer, Math.min(cap * rng.float(0.97, 1.03), l.price));
   const title = itemTitle(it);
   const c = { id: uid('c'), kind: 'sell', itemId: it.id, listingId: l.id, npc: b, title, offer, maxPay, ask: l.price, round: 0, patience: tr.patience + (b.trait === 'newbie' ? 1 : 0), st: 'open', msgs: [], t: s.t, unread: 1, persuaded: 0, asked: [], told: [], lies: [] };
   const region = countryOf(s.player.city);
@@ -161,8 +176,10 @@ export function chatGreet(c) {
 export function chatPersuade(c, score) {
   // score 0..1 from the QTE
   c.persuaded++;
-  const bump = score >= 0.95 ? 0.07 : score >= 0.6 ? 0.04 : -0.02;
-  c.maxPay *= 1 + bump;
+  const ch = charisma() / 100;
+  const bump = score >= 0.95 ? 0.035 + 0.045 * ch : score >= 0.6 ? 0.02 + 0.025 * ch : -0.02;
+  c.maxPay = Math.min(c.maxPay * (1 + bump), c.ask);
+  addCharisma(bump > 0 ? (score >= 0.95 ? 1.5 : 0.7) : -0.6);
   if (bump > 0) c.offer = nicePrice(Math.min(c.maxPay, c.offer * (1 + bump * 0.8)), countryOf(G.s.player.city).cur);
   c.msgs.push({ f: 'me', tx: L(pickR(MY_PITCH)), t: G.s.t });
   if (bump > 0) c.msgs.push({ f: 'them', tx: fill(L(pickR(PERSUADED)), { price: fmt(c.offer) }), t: G.s.t });
@@ -375,6 +392,7 @@ export function completeSale(c, mode = 'ship', packed = 0.5) {
 export function finishSale(sale, instant = false) {
   const s = G.s;
   earn(sale.payout, 'sale', sale.title);
+  addCharisma(0.3);
   // the deal is closed now: from here the buyer has 3–7 minutes to complain about a Shade item
   noteHotSale(sale.itemSnap, sale.price);
   const profit = sale.payout - sale.paid;

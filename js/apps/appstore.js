@@ -1,4 +1,5 @@
 // App Store, VPN and the shadow market.
+import { isFound } from '../game/shadow.js';
 import { G } from '../core/state.js';
 import { T, L, clockDur, dur } from '../core/i18n.js';
 import { esc } from '../core/util.js';
@@ -43,13 +44,14 @@ function storeMain() {
     <div class="chips">${['all', ...Object.keys(APP_CATS).filter((k) => k !== 'secret')].map((k) => `<button class="chip ${F.cat === k ? 'on' : ''}" data-a="scat" data-v="${k}">${k === 'all' ? T('Все', 'Усі', 'All') : esc(L(APP_CATS[k]))}</button>`).join('')}</div>
     ${list.map(row).join('')}
     <h3 class="sub">🕶 ${esc(L(APP_CATS.secret))}</h3>
-    ${vpn ? `<div class="sdark">${secret.map(row).join('')}</div>` : `<div class="card sdark"><b>${T('Скрыто', 'Приховано', 'Hidden')}</b><div class="small m">${T('Некоторые приложения не видны в обычной сети. Нужно защищённое соединение: VPN и защита Wi‑Fi.', 'Деякі застосунки не видно у звичайній мережі. Потрібне захищене зʼєднання: VPN і захист Wi‑Fi.', 'Some apps aren’t visible on a normal network. You need a secure connection: VPN and Wi‑Fi protection.')}</div><button class="btn sm mt" data-a="${isInstalled('vpn') ? 'openA' : 'go'}" data-v="${isInstalled('vpn') ? 'vpn' : 'app'}" data-id="vpn">${isInstalled('vpn') ? T('Открыть VPN', 'Відкрити VPN', 'Open VPN') : T('Скачать VPN', 'Завантажити VPN', 'Get a VPN')}</button></div>`}`;
+    ${vpn ? `<div class="sdark">${secret.filter((a) => isFound(a.id)).map(row).join('')}${secret.filter((a) => !isFound(a.id)).map(() => `<div class="srow locked-row"><div class="sq">❓</div><div class="grow"><b>???</b><div class="small m">${T('Ссылку на это приложение можно найти на чужих флешках, дисках и телефонах', 'Посилання на цей застосунок можна знайти на чужих флешках, дисках і телефонах', 'A link to this app can be found on other people’s drives and phones')}</div></div></div>`).join('')}</div>` : `<div class="card sdark"><b>${T('Скрыто', 'Приховано', 'Hidden')}</b><div class="small m">${T('Некоторые приложения не видны в обычной сети. Нужно защищённое соединение: VPN и защита Wi‑Fi.', 'Деякі застосунки не видно у звичайній мережі. Потрібне захищене зʼєднання: VPN і захист Wi‑Fi.', 'Some apps aren’t visible on a normal network. You need a secure connection: VPN and Wi‑Fi protection.')}</div><button class="btn sm mt" data-a="${isInstalled('vpn') ? 'openA' : 'go'}" data-v="${isInstalled('vpn') ? 'vpn' : 'app'}" data-id="vpn">${isInstalled('vpn') ? T('Открыть VPN', 'Відкрити VPN', 'Open VPN') : T('Скачать VPN', 'Завантажити VPN', 'Get a VPN')}</button></div>`}`;
 }
 function storeApp(p) {
   const a = UI.apps[p.id];
   const meta = APP_META[p.id];
   if (!a || !meta) return empty('box', T('Нет такого приложения', 'Немає такого застосунку', 'No such app'));
   if (meta.secret && !vpnActive()) return empty('shield', T('Недоступно', 'Недоступно', 'Unavailable'), T('Включите VPN.', 'Увімкніть VPN.', 'Turn on the VPN.'));
+  if (meta.secret && !isFound(p.id)) return empty('search', T('Ссылка не найдена', 'Посилання не знайдено', 'No link yet'), T('Ищите на чужих флешках, дисках и телефонах.', 'Шукайте на чужих флешках, дисках і телефонах.', 'Look on other people’s drives and phones.'));
   return `<div class="row" style="gap:14px;align-items:flex-start">${appIcon(a, 96)}<div class="grow"><h2 style="margin:0">${esc(appName(a))}</h2><div class="small m">${esc(L(APP_CATS[meta.cat]))}</div><div class="mt">${getBtn(a)}</div></div></div>
     <div class="sstats"><div><b>${(meta.rating || 4.5).toFixed(1)}</b><small>★★★★★</small></div><div><b>${meta.mb || 40}</b><small>MB</small></div><div><b>${meta.price ? fmt(meta.price) : T('Бесплатно', 'Безкоштовно', 'Free')}</b><small>${T('цена', 'ціна', 'price')}</small></div><div><b>12+</b><small>${T('возраст', 'вік', 'age')}</small></div></div>
     <div class="card">${esc(L(meta.desc))}</div>

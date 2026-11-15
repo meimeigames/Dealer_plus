@@ -4,12 +4,14 @@
 // novel, lottery tickets… Each loot file has one-time actions in its preview, some honest, some risky.
 // Everything is rolled on its own RNG, so the older finds of a device never change.
 import { G, emit } from '../core/state.js';
-import { T } from '../core/i18n.js';
+import { T, L } from '../core/i18n.js';
 import { RNG } from '../core/rng.js';
 import { PHOTO_FILES } from '../data/photos.js';
 import { earn, addXP, addReview, stat, notify } from './player.js';
 import { fmt } from '../core/money.js';
 import { policeFine } from './crime.js';
+import { findApp } from './shadow.js';
+import { limitedSkins, unlockSkin } from './cardskins.js';
 
 const pad = (n, k = 4) => String(n).padStart(k, '0');
 const sc = (e, ru, uk, en) => [e, ru, uk, en];
@@ -238,6 +240,47 @@ const LOOT = [
       earn(d.usd, 'other', T('Продажа данных', 'Продаж даних', 'Sold data')); return { msg: `+${fmt(d.usd)}`, cls: 'g' };
     } },
 ];
+// ---------------------------------------------------------------- useful finds (apps, VPN, designs, things for your business)
+const SHADOW_NAMES = { dark: ['Тень', 'Тінь', 'Shade'], lab: ['Phone Lab', 'Phone Lab', 'Phone Lab'], probiv: ['Пробив', 'Пробив', 'Probiv'], radar: ['Радар', 'Радар', 'Radar'] };
+const PAID_APPS = { legit: ['Легит‑чек', 'Легіт‑чек', 'Legit check'], stocks: ['Биржа', 'Біржа', 'Stocks'], vpn: ['VPN', 'VPN', 'VPN'] };
+const unl = () => (G.s.unlocks ||= { recipes: [], obd: false, supplierUntil: 0 });
+LOOT.push(
+  { key: 'installer', kinds: ['phone', 'laptop', 'usb', 'hdd', 'secure', 'tablet', 'nas'], p: 0.05, ic: '🕳',
+    roll: (r) => ({ app: r.pick(Object.keys(SHADOW_NAMES)) }),
+    file: (d) => [T(`ссылка_${d.app}.onion.txt`, `посилання_${d.app}.onion.txt`, `link_${d.app}.onion.txt`), 'text', T(`Ссылка на скрытое приложение «${L(SHADOW_NAMES[d.app])}». Открывается только через VPN.`, `Посилання на прихований застосунок «${L(SHADOW_NAMES[d.app])}». Відкривається лише через VPN.`, `A link to the hidden app “${L(SHADOW_NAMES[d.app])}”. Opens only over a VPN.`)],
+    acts: (d) => [['save', T(`🕳 Сохранить ссылку «${L(SHADOW_NAMES[d.app])}»`, `🕳 Зберегти посилання «${L(SHADOW_NAMES[d.app])}»`, `🕳 Save the “${L(SHADOW_NAMES[d.app])}” link`)]],
+    act: (it, d) => { if (!findApp(d.app)) { earn(8, 'other', T('Продал лишнюю ссылку', 'Продав зайве посилання', 'Sold a spare link')); return { msg: T('Эта ссылка у вас уже есть — продали её знакомому за 8 $', 'Це посилання у вас уже є — продали його знайомому за 8 $', 'You already had it — sold it on for $8'), cls: '' }; } return { msg: T(`Нашли ссылку на «${L(SHADOW_NAMES[d.app])}» — скачайте в App Market (раздел «Скрытые», нужен VPN)`, `Знайшли посилання на «${L(SHADOW_NAMES[d.app])}» — завантажте в App Market (розділ «Приховані», потрібен VPN)`, `Found a link to “${L(SHADOW_NAMES[d.app])}” — get it in App Market (Hidden, needs a VPN)`), cls: 'g' }; } },
+  { key: 'vpncfg', kinds: ['laptop', 'usb', 'phone', 'tablet'], p: 0.04, ic: '🛡',
+    roll: (r) => ({ days: r.pick([3, 5, 7, 14]) }),
+    file: (d) => [`wg0_${d.days}d.conf`, 'text', T(`Конфиг VPN с оплаченным периодом: ещё ${d.days} дн.`, `Конфіг VPN з оплаченим періодом: ще ${d.days} дн.`, `A VPN config with ${d.days} paid days left.`)],
+    acts: (d) => [['use', T(`🛡 Подключить VPN на ${d.days} дн.`, `🛡 Підключити VPN на ${d.days} дн.`, `🛡 Use the VPN for ${d.days} days`)]],
+    act: (it, d) => { const s = G.s; s.vpn = { ...(s.vpn || {}), on: true, until: Math.max(s.vpn?.until || 0, s.t) + d.days * 1440 }; emit('apps'); return { msg: T(`VPN работает ещё ${d.days} дн.`, `VPN працює ще ${d.days} дн.`, `VPN on for ${d.days} more days`), cls: 'g' }; } },
+  { key: 'cardskin', kinds: ['phone', 'usb', 'laptop', 'tablet'], p: 0.03, ic: '💳',
+    roll: (r) => ({ id: r.pick(limitedSkins().map((x) => x.id)) }),
+    file: (d) => [T(`Дизайн_карты_${d.id}.png`, `Дизайн_картки_${d.id}.png`, `Card_design_${d.id}.png`), 'photo', T('Макет лимитированного дизайна банковской карты с кодом активации.', 'Макет лімітованого дизайну банківської картки з кодом активації.', 'A limited bank card design with an activation code.')],
+    acts: () => [['use', T('💳 Активировать дизайн', '💳 Активувати дизайн', '💳 Activate the design')]],
+    act: (it, d) => { unlockSkin(d.id); return { msg: T('Новый дизайн карты в банке → «🎨 Дизайн»', 'Новий дизайн картки в банку → «🎨 Дизайн»', 'New card design in the bank → “🎨 Design”'), cls: 'g' }; } },
+  { key: 'appkey', kinds: ['laptop', 'usb', 'hdd'], p: 0.03, ic: '🔓',
+    roll: (r) => ({ app: r.pick(Object.keys(PAID_APPS)) }),
+    file: (d) => [T(`Лицензия ${L(PAID_APPS[d.app])}.key`, `Ліцензія ${L(PAID_APPS[d.app])}.key`, `${L(PAID_APPS[d.app])} licence.key`), 'text', T('Неиспользованный ключ лицензии на платное приложение.', 'Невикористаний ключ ліцензії на платний застосунок.', 'An unused licence key for a paid app.')],
+    acts: (d) => [['use', T(`🔓 Активировать «${L(PAID_APPS[d.app])}»`, `🔓 Активувати «${L(PAID_APPS[d.app])}»`, `🔓 Activate “${L(PAID_APPS[d.app])}”`)]],
+    act: (it, d) => { const s = G.s; if ((s.bought || []).includes(d.app)) { earn(10, 'sale', T('Продажа ключа', 'Продаж ключа', 'Sold a key')); return { msg: T('Уже куплено — ключ продали за 10 $', 'Уже куплено — ключ продали за 10 $', 'Already bought — sold the key for $10'), cls: '' }; } (s.bought ||= []).push(d.app); emit('apps'); return { msg: T('Приложение теперь бесплатно — качайте в App Market', 'Застосунок тепер безкоштовний — завантажуйте в App Market', 'The app is free for you now — get it in App Market'), cls: 'g' }; } },
+  { key: 'recipes', kinds: ['laptop', 'usb', 'tablet', 'phone'], p: 0.03, ic: '☕',
+    roll: (r) => ({ id: r.pick(['raf', 'lavender', 'tonic', 'mulled', 'negroni', 'shawarma_cheese', 'matcha']) }),
+    file: () => [T('Рецепты фирменных напитков.docx', 'Рецепти фірмових напоїв.docx', 'Signature recipes.docx'), 'doc', T('Техкарты бариста и бармена: граммовки, подача, себестоимость.', 'Техкарти баристи й бармена: грамовки, подача, собівартість.', 'Barista and bartender tech cards: grams, serving, cost.')],
+    acts: () => [['use', T('☕ Добавить рецепт в меню заведений', '☕ Додати рецепт у меню закладів', '☕ Add the recipe to your venues’ menus')]],
+    act: (it, d) => { const u = unl(); if (!u.recipes.includes(d.id)) u.recipes.push(d.id); emit('biz'); return { msg: T('Новая позиция в меню кофейни / бара / шаурмичной', 'Нова позиція в меню кавʼярні / бару / шаурмичної', 'A new item on your café / bar / shawarma menu'), cls: 'g' }; } },
+  { key: 'suppliers', kinds: ['laptop', 'usb', 'office', 'hdd'], p: 0.03, ic: '📇',
+    roll: (r) => ({ days: r.pick([5, 7, 10]) }),
+    file: () => [T('Контакты поставщиков (прайс).xlsx', 'Контакти постачальників (прайс).xlsx', 'Supplier contacts (prices).xlsx'), 'doc', T('Прямые контакты дистрибьюторов: техника, расходники, мебель — со скидкой.', 'Прямі контакти дистрибʼюторів: техніка, витратні матеріали, меблі — зі знижкою.', 'Direct distributor contacts: equipment, supplies, furniture — at a discount.')],
+    acts: (d) => [['use', T(`📇 Скидка 10 % у Поставщика на ${d.days} дн.`, `📇 Знижка 10 % у Постачальника на ${d.days} дн.`, `📇 10 % off at the Supplier for ${d.days} days`)]],
+    act: (it, d) => { const u = unl(); u.supplierUntil = Math.max(u.supplierUntil || 0, G.s.t) + d.days * 1440; emit('biz'); return { msg: T('Скидка у Поставщика включена', 'Знижку в Постачальника ввімкнено', 'Supplier discount on'), cls: 'g' }; } },
+  { key: 'obd', kinds: ['laptop', 'usb'], p: 0.025, ic: '🔧',
+    roll: () => ({}),
+    file: () => [T('Дилерский софт диагностики (OBD).iso', 'Дилерський софт діагностики (OBD).iso', 'Dealer diagnostics software (OBD).iso'), 'archive', T('Полная версия дилерской программы диагностики авто.', 'Повна версія дилерської програми діагностики авто.', 'Full dealer car diagnostics software.')],
+    acts: () => [['use', T('🔧 Установить на СТО (услуга «Компьютерная диагностика»)', '🔧 Встановити на СТО (послуга «Компʼютерна діагностика»)', '🔧 Install at your garage (“Computer diagnostics” service)')]],
+    act: () => { unl().obd = true; emit('biz'); return { msg: T('На СТО появилась компьютерная диагностика', 'На СТО зʼявилася компʼютерна діагностика', 'Your garage now offers computer diagnostics'), cls: 'g' }; } },
+);
 const LOOT_BY = Object.fromEntries(LOOT.map((x) => [x.key, x]));
 export const lootIcon = (key) => LOOT_BY[key]?.ic || '✨';
 
@@ -255,7 +298,7 @@ export function extraFiles(it, c) {
   // loot: at most two per device
   let n = 0;
   for (const L of LOOT) {
-    if (n >= 2 || !L.kinds.includes(kind) || (L.y && year < L.y)) continue;
+    if (n >= 3 || !L.kinds.includes(kind) || (L.y && year < L.y)) continue;
     if (!r.chance(L.p)) continue;
     n++;
     const d = L.roll(r, c);

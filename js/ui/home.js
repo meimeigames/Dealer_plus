@@ -77,7 +77,9 @@ export const widgetAvailable = (k) => !WIDGETS[k].app || isInstalled(WIDGETS[k].
 const DOCK_PREF = ['market', 'bank', 'inventory', 'jobs', 'map', 'appstore', 'profile', 'settings'];
 const CAP = ROWS * COLS;
 export const MAX_PAGES = 5;
-const cellsOf = (key) => { if (key.startsWith('a:')) return 1; const w = G.s.home.widgets.find((x) => 'w:' + x.id === key); return w ? CELLS[w.size] : 0; };
+// '_' is an empty cell: icons can stand anywhere on a page, with holes between them
+const GAP = '_';
+const cellsOf = (key) => { if (key === GAP || key.startsWith('a:')) return 1; const w = G.s.home.widgets.find((x) => 'w:' + x.id === key); return w ? CELLS[w.size] : 0; };
 const validApp = (id) => !!UI.apps[id] && !UI.apps[id].hidden && isInstalled(id);
 export function syncLayout() {
   const s = G.s, h = s.home;
@@ -93,27 +95,37 @@ export function syncLayout() {
     h.lay = { pages, dock };
   }
   const L2 = h.lay;
-  const ok = (k) => (k.startsWith('a:') ? apps.includes(k.slice(2)) : wids.some((w) => 'w:' + w.id === k));
+  const ok = (k) => (k === GAP ? true : k.startsWith('a:') ? apps.includes(k.slice(2)) : wids.some((w) => 'w:' + w.id === k));
   L2.dock = L2.dock.filter((id) => apps.includes(id)).slice(0, 4);
-  L2.pages = L2.pages.map((pg) => pg.filter((k, i, arr) => ok(k) && arr.indexOf(k) === i && !(k.startsWith('a:') && L2.dock.includes(k.slice(2)))));
+  // an app that disappeared leaves a hole, so the others don't jump
+  L2.pages = L2.pages.map((pg) => pg.map((k, i, arr) => (k !== GAP && (!ok(k) || arr.indexOf(k) !== i || (k.startsWith('a:') && L2.dock.includes(k.slice(2)))) ? GAP : k)));
   const placed = new Set([...L2.pages.flat(), ...L2.dock.map((id) => 'a:' + id)]);
   // newly installed apps and new widgets go to the first free spot from the end
   for (const w of wids) if (!placed.has('w:' + w.id)) { const pg = L2.pages[Math.min(HOME.page, L2.pages.length - 1)] || (L2.pages[0] ||= []); pg.unshift('w:' + w.id); }
-  for (const id of apps) if (!placed.has('a:' + id)) { if (!L2.pages.length) L2.pages.push([]); L2.pages[L2.pages.length - 1].push('a:' + id); }
-  // overflow → next page
+  for (const id of apps) if (!placed.has('a:' + id)) {
+    if (!L2.pages.length) L2.pages.push([]);
+    // the first hole on the last page, or the end of it
+    const pg = L2.pages[L2.pages.length - 1], hole = pg.indexOf(GAP);
+    if (hole >= 0) pg[hole] = 'a:' + id; else pg.push('a:' + id);
+  }
+  // overflow → next page (holes at the end are dropped first)
   for (let i = 0; i < L2.pages.length; i++) {
+    let pg = L2.pages[i];
+    while (pg.length && pg[pg.length - 1] === GAP && pg.reduce((a, k) => a + cellsOf(k), 0) > CAP) pg = pg.slice(0, -1);
     let used = 0; const keep = [], spill = [];
-    for (const k of L2.pages[i]) { const c = cellsOf(k); if (used + c <= CAP) { keep.push(k); used += c; } else spill.push(k); }
+    for (const k of pg) { const c = cellsOf(k); if (used + c <= CAP) { keep.push(k); used += c; } else if (k !== GAP) spill.push(k); }
     L2.pages[i] = keep;
     if (spill.length) (L2.pages[i + 1] ||= []).unshift(...spill);
   }
   if (HOME.edit) {
-    // while you arrange the screen there are always five pages to drop things on
+    // while you arrange the screen there are always five pages, every free cell visible to drop things on
     while (L2.pages.length < MAX_PAGES) L2.pages.push([]);
+    for (const pg of L2.pages) { let used = pg.reduce((a, k) => a + cellsOf(k), 0); while (used < CAP) { pg.push(GAP); used++; } }
   } else {
-    // done arranging: empty pages go away (the page you're looking at keeps its place)
+    // done arranging: holes at the end of a page and empty pages go away (inner holes stay where you left them)
+    for (let i = 0; i < L2.pages.length; i++) { const pg = L2.pages[i]; while (pg.length && pg[pg.length - 1] === GAP) pg.pop(); }
     const cur = L2.pages[HOME.page];
-    L2.pages = L2.pages.filter((pg) => pg.length);
+    L2.pages = L2.pages.filter((pg) => pg.some((k) => k !== GAP));
     if (!L2.pages.length) L2.pages.push([]);
     const at = cur ? L2.pages.indexOf(cur) : -1;
     const np = at >= 0 ? at : Math.min(HOME.page, L2.pages.length - 1);
@@ -225,7 +237,7 @@ export function renderHomeScreen() {
   const s = G.s; if (!s) return;
   const lay = syncLayout();
   applyWall();
-  const html = lay.pages.map((pg, i) => `<div class="hpage" data-key="p${i}" data-page="${i}"><div class="hgrid">${pg.map((k) => { if (k.startsWith('a:')) return appIcon(k.slice(2), false); const w = s.home.widgets.find((x) => 'w:' + x.id === k); return w ? widgetHTML(w) : ''; }).join('')}</div></div>`).join('');
+  const html = lay.pages.map((pg, i) => `<div class="hpage" data-key="p${i}" data-page="${i}"><div class="hgrid">${pg.map((k, j) => { if (k === GAP) return `<i class="hgap" data-gap="${i}:${j}"></i>`; if (k.startsWith('a:')) return appIcon(k.slice(2), false); const w = s.home.widgets.find((x) => 'w:' + x.id === k); return w ? widgetHTML(w) : ''; }).join('')}</div></div>`).join('');
   const home = $('#home');
   home.classList.toggle('editing', HOME.edit);
   morphHTML(home, html);
@@ -236,6 +248,23 @@ export function renderHomeScreen() {
 }
 
 // ---------------------------------------------------------------- interactions
+// put a key into a cell of a page: whatever stood there takes its old place (a swap), a hole simply fills
+function placeAt(key, pi, idx) {
+  const lay = G.s.home.lay, pg = lay.pages[pi];
+  if (!pg || idx < 0 || idx >= pg.length) return false;
+  const target = pg[idx];
+  if (target === key) return false;
+  let from = null;
+  lay.pages.forEach((p, n) => { const i = p.indexOf(key); if (i >= 0) from = [n, i]; });
+  const inDock = key.startsWith('a:') && lay.dock.includes(key.slice(2));
+  if (from) lay.pages[from[0]][from[1]] = target;
+  else if (inDock) {
+    const di = lay.dock.indexOf(key.slice(2));
+    if (target !== GAP && target.startsWith('a:')) lay.dock[di] = target.slice(2); else lay.dock.splice(di, 1);
+  } else if (target !== GAP) return false;
+  pg[idx] = key;
+  return true;
+}
 function moveKey(key, toPage, before) {
   const lay = G.s.home.lay;
   const isApp = key.startsWith('a:');
@@ -250,6 +279,9 @@ function moveKey(key, toPage, before) {
     return true;
   }
   const pg = (lay.pages[toPage] ||= []);
+  // flipping to another page while holding: the first free cell there
+  const hole = before ? -1 : pg.indexOf(GAP);
+  if (hole >= 0) { pg[hole] = key; return true; }
   let i = before ? pg.indexOf(before) : pg.length;
   if (i < 0) i = pg.length;
   pg.splice(i, 0, key);
@@ -300,32 +332,46 @@ function startDrag(el, e) {
       return;
     }
     edgeT = 0;
-    if (now - lastT < 110) return;
-    const under = document.elementFromPoint(ev.clientX, ev.clientY);
+    if (now - lastT < 60) return;
+    lastT = now;
+    aim(ev.clientX, ev.clientY);
+  };
+  // what is under the finger: a hole, another icon (swap) or the dock
+  const aim = (x, y) => {
+    const under = document.elementFromPoint(x, y);
+    const gap = under?.closest('[data-gap]');
     const tgt = under?.closest('[data-hk]');
     const inDock = under?.closest('[data-dock]');
     let sig = '';
     if (inDock && key.startsWith('a:')) sig = 'dock:' + (tgt?.dataset.hk || '');
-    else if (tgt && tgt.dataset.hk !== key && tgt.closest('.hpage')) sig = 'pg:' + tgt.dataset.hk + (ev.clientX > tgt.getBoundingClientRect().left + tgt.getBoundingClientRect().width / 2 ? '>' : '<');
-    else if (under?.closest('.hgrid') && !tgt) sig = 'end:' + HOME.page;
-    if (!sig || sig === lastTarget) return;
-    lastTarget = sig; lastT = now;
-    if (sig.startsWith('dock:')) moveKey(key, 'dock', tgt && tgt.closest('[data-dock]') ? tgt.dataset.hk : null);
-    else if (sig.startsWith('end:')) moveKey(key, HOME.page, null);
-    else {
-      const t = tgt.dataset.hk, after = sig.endsWith('>');
-      const pi = +tgt.closest('.hpage').dataset.page;
-      const pg = G.s.home.lay.pages[pi];
-      const idx = pg.indexOf(t) + (after ? 1 : 0);
-      moveKey(key, pi, pg.filter((k) => k !== key)[idx - (pg.indexOf(key) >= 0 && pg.indexOf(key) < idx ? 1 : 0)] || null);
+    else if (gap) sig = 'gap:' + gap.dataset.gap;
+    else if (tgt && tgt.dataset.hk !== key && tgt.closest('.hpage')) sig = 'swap:' + tgt.dataset.hk;
+    if (sig === lastTarget) return;
+    lastTarget = sig;
+    document.querySelectorAll('.hdrop').forEach((x) => x.classList.remove('hdrop'));
+    if (sig.startsWith('gap:')) gap.classList.add('hdrop');
+    else if (sig.startsWith('swap:') || (sig.startsWith('dock:') && tgt)) tgt.classList.add('hdrop');
+    else if (sig.startsWith('dock:')) inDock.classList.add('hdrop');
+  };
+  const drop = () => {
+    const sig = lastTarget;
+    if (!sig) return;
+    if (sig.startsWith('dock:')) { const before = sig.slice(5); moveKey(key, 'dock', before || null); return; }
+    if (sig.startsWith('gap:')) { const [pi, idx] = sig.slice(4).split(':').map(Number); placeAt(key, pi, idx); return; }
+    if (sig.startsWith('swap:')) {
+      const t = sig.slice(5), lay = G.s.home.lay;
+      const pi = lay.pages.findIndex((pg) => pg.includes(t));
+      if (pi >= 0) placeAt(key, pi, lay.pages[pi].indexOf(t));
     }
-    renderHomeScreen(); mark();
   };
   const up = (ev) => {
     if (ev && ev.pointerId !== undefined && ev.pointerId !== pid) { others.delete(ev.pointerId); return; }
     window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); window.removeEventListener('pointerdown', odown, true);
     dragging = false; document.body.classList.remove('hdrag');
     ghost.remove();
+    if (ev && ev.clientX != null) aim(ev.clientX, ev.clientY);
+    drop();
+    document.querySelectorAll('.hdrop').forEach((x) => x.classList.remove('hdrop'));
     document.querySelectorAll('.dragging').forEach((x) => x.classList.remove('dragging'));
     renderHomeScreen();
     emit('home');

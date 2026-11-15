@@ -1,5 +1,6 @@
 // The phone itself: installed apps, downloads from the App Store, VPN subscription, and the shadow market
 // that only works through a VPN (cheap grey goods that may be stolen, account unlocks, fake reviews).
+import { isFound } from './shadow.js';
 import { G, emit } from '../core/state.js';
 import { T, L } from '../core/i18n.js';
 import { RNG } from '../core/rng.js';
@@ -39,6 +40,7 @@ export function startDownload(app) {
   const meta = APP_META[app.id] || {};
   if (isInstalled(app.id) || s.dl[app.id]) return { ok: false };
   if (meta.secret && !vpnActive()) return { ok: false, msg: T('Скрытые приложения качаются только через VPN', 'Приховані застосунки завантажуються лише через VPN', 'Hidden apps download only over a VPN') };
+  if (meta.secret && !isFound(app.id)) return { ok: false, msg: T('Ссылку на это приложение ещё надо найти — на чужих флешках, дисках и телефонах', 'Посилання на цей застосунок ще треба знайти — на чужих флешках, дисках і телефонах', 'You still need to find a link to this app — on other people’s drives and phones') };
   if (meta.price && !(s.bought || []).includes(app.id)) {
     if (!spend(meta.price, 'apps', T(`Покупка: ${L(app.name)}`, `Покупка: ${L(app.name)}`, `Purchase: ${L(app.name)}`))) return { ok: false, msg: T('Не хватает денег', 'Не вистачає грошей', 'Not enough money') };
     (s.bought ||= []).push(app.id);

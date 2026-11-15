@@ -12,6 +12,7 @@ import { img, tile, tags, specs, defectList, empty, avatar, stars, gallery } fro
 import { listingViews } from '../data/views.js';
 import { hashStr } from '../core/rng.js';
 import { feedFor, feedTimeLeft, findListing, isBelowMarket, marketEstimate, listingDesc, openBuyChat, sellerRespond, DISTRICTS, pickupInfo } from '../game/market.js';
+import { charisma } from '../game/sell.js';
 import { chatGreet, chatPersuade, chatCounter, chatAccept, chatDecline, chatAnswer, completeSale, scamClick, scamReport, linkOpen, linkReport, linkIgnore, officialSite, resolveClaim, myListing, unlist, PLATFORMS } from '../game/sell.js';
 import { answerOptions, sellerTopics, sellerAnswer } from '../game/talk.js';
 import { TYPES, isBanned, banLeft, appealReview, appealBan, askQuestion, sellerDisputeInfo, disputeSeller, BAN_STRIKES, openTickets } from '../game/support.js';
@@ -109,7 +110,8 @@ function chatView(p) {
     if (!c.greeted) opts += O('greet', T('Здравствуйте! Да, ещё продаётся.', 'Добрий день! Так, ще продається.', 'Hello! Yes, still available.'));
     opts += O('accept', T(`Согласен, продам за ${fmt(c.offer)}`, `Згоден, продам за ${fmt(c.offer)}`, `Deal, I’ll sell for ${fmt(c.offer)}`), 'solid');
     opts += O('counter', T('Предложить свою цену', 'Запропонувати свою ціну', 'Counter‑offer'));
-    if (c.persuaded < 2) opts += O('persuade', `🎯 ${T('Убедить (торг)', 'Переконати (торг)', 'Persuade (haggle)')}`);
+    if (c.persuaded < 2) opts += O('persuade', `🎯 ${T('Убедить (торг)', 'Переконати (торг)', 'Persuade (haggle)')} <small style="opacity:.7">· ${T('харизма', 'харизма', 'charisma')} ${Math.round(charisma())}</small>`);
+    if (it && c.ask > c.maxPay * 1.02 && c.persuaded >= 2) opts += `<div class="link-hint">💬 ${T('Покупатели смотрят на рыночную цену. Дороже рынка продают харизма и хороший торг — прокачивайте «Мастер торга» и убеждайте.', 'Покупці дивляться на ринкову ціну. Дорожче за ринок продають харизма й добрий торг — прокачуйте «Майстер торгу» й переконуйте.', 'Buyers go by the market price. Charisma and good haggling sell above it — level up “Haggling” and persuade.')}</div>`;
     opts += O('decline', T('Нет, спасибо', 'Ні, дякую', 'No, thanks'));
   } else if (c.kind === 'sell' && c.st === 'agreed') {
     if (it && shadeOf(it)) { const R = shownRisk(it); opts += `<div class="link-hint">🕶 ${T(`Вещь из Тени. На сделке может прийти полиция: ~${Math.round(R.deal * 100)}%${R.deal > R.floor + 0.001 ? ` (уберите следы — будет ${Math.round(R.floor * 100)}%)` : ''}. После закрытия сделки ещё 3–7 минут покупатель может пожаловаться — ~${Math.round(R.complain * 100)}%.`, `Річ із Тіні. На угоду може прийти поліція: ~${Math.round(R.deal * 100)}%${R.deal > R.floor + 0.001 ? ` (приберіть сліди — буде ${Math.round(R.floor * 100)}%)` : ''}. Після закриття угоди ще 3–7 хвилин покупець може поскаржитися — ~${Math.round(R.complain * 100)}%.`, `A Shade item. Police may show up at the deal: ~${Math.round(R.deal * 100)}%${R.deal > R.floor + 0.001 ? ` (wipe the traces — ${Math.round(R.floor * 100)}%)` : ''}. For 3–7 minutes after the deal closes the buyer may complain — ~${Math.round(R.complain * 100)}%.`)}</div>`; }

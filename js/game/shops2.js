@@ -407,7 +407,7 @@ export function cargoArrived(id) {
   if (b.hold) { charge(b.duty, 'customs', T('Доначисление таможни за крупную партию', 'Донарахування митниці за велику партію', 'Extra customs duty on a large lot')); lines.push(T(`Таможня задержала груз на ${b.hold} дн. и доначислила ${fmt(b.duty)}.`, `Митниця затримала вантаж на ${b.hold} дн. і донарахувала ${fmt(b.duty)}.`, `Customs held it ${b.hold} days and charged ${fmt(b.duty)} more.`)); }
   if (b.seized) { charge(b.fine, 'customs', T('Штраф: контрафакт в партии', 'Штраф: контрафакт у партії', 'Fine: counterfeits in the lot')); stat('seized', b.seized); lines.push(T(`Изъято ${b.seized} шт как контрафакт (клоны в партии), штраф ${fmt(b.fine)}.`, `Вилучено ${b.seized} шт як контрафакт (клони в партії), штраф ${fmt(b.fine)}.`, `${b.seized} pcs seized as counterfeit (clones in the lot), fine ${fmt(b.fine)}.`)); }
   if (b.crushed) lines.push(T(`Одну коробку помяли: ${b.crushed} шт с разбитым экраном.`, `Одну коробку помʼяли: ${b.crushed} шт з розбитим екраном.`, `A box got crushed: ${b.crushed} pcs with cracked screens.`));
-  notify('supplier', b.hold || b.seized || b.crushed ? T('Карго прибыло — с сюрпризами', 'Карго прибуло — із сюрпризами', 'Cargo arrived — with surprises') : T('Карго прибыло', 'Карго прибуло', 'Cargo arrived'), lines.join(' '), { go: ['inventory'] });
+  notify('ymarket', b.hold || b.seized || b.crushed ? T('Карго прибыло — с сюрпризами', 'Карго прибуло — із сюрпризами', 'Cargo arrived — with surprises') : T('Карго прибыло', 'Карго прибуло', 'Cargo arrived'), lines.join(' '), { go: ['inventory'] });
   for (const k of Object.keys(st.batches)) if (st.batches[k].done && G.s.t - st.batches[k].at > 20 * 1440) delete st.batches[k];
   emit('sup');
 }
@@ -418,7 +418,7 @@ export function supTick() {
   // boxes that arrived: one message each
   for (const o of myBoxes()) if (!o.notified && s.t >= o.eta) {
     o.notified = true;
-    notify('supplier', T('Опт‑бокс доставлен', 'Опт‑бокс доставлено', 'Wholesale box delivered'), T(`${boxTitle(o)} — откройте и посмотрите, что выпало!`, `${boxTitle(o)} — відкрийте й подивіться, що випало!`, `${boxTitle(o)} — open it and see what you got!`), { go: ['supplier', 'obox', { id: o.id }] });
+    notify('ymarket', T('Опт‑бокс доставлен', 'Опт‑бокс доставлено', 'Wholesale box delivered'), T(`${boxTitle(o)} — откройте и посмотрите, что выпало!`, `${boxTitle(o)} — відкрийте й подивіться, що випало!`, `${boxTitle(o)} — open it and see what you got!`), { go: ['ymarket', 'obox', { id: o.id }] });
     emit('sup');
   }
   if (s.t % BOX_WIN === 0) {
@@ -432,9 +432,9 @@ export function supTick() {
   }
   const ls = lots();
   const fresh = ls.filter((l) => l.at > st.notified);
-  if (fresh.length && (s.installed || []).includes('supplier')) {
+  if (fresh.length && (s.installed || []).includes('ymarket')) {
     const l = fresh[fresh.length - 1];
-    notify('supplier', T('Опт', 'Опт', 'Wholesale'), T(`Новая оптовая партия: ${itemTitle(l.it)}, до ${l.stock} шт`, `Нова оптова партія: ${itemTitle(l.it)}, до ${l.stock} шт`, `New wholesale lot: ${itemTitle(l.it)}, up to ${l.stock} pcs`), { go: ['supplier'] });
+    notify('ymarket', T('Опт', 'Опт', 'Wholesale'), T(`Новая оптовая партия: ${itemTitle(l.it)}, до ${l.stock} шт`, `Нова оптова партія: ${itemTitle(l.it)}, до ${l.stock} шт`, `New wholesale lot: ${itemTitle(l.it)}, up to ${l.stock} pcs`), { go: ['ymarket', 'ali'] });
     st.notified = Math.max(...fresh.map((x) => x.at));
   }
 }

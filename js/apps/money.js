@@ -15,7 +15,8 @@ import { earn, spend, stat, today, getStat } from '../game/player.js';
 import { playMini } from '../mini/engine.js';
 import { regName, regColors, region } from './common.js';
 import { sfx } from '../ui/sfx.js';
-import { orderCard, setPrimary, closeCard } from '../game/cards.js';
+import { orderCard, setPrimary, closeCard, ownedCard } from '../game/cards.js';
+import { CARD_SKINS, skinState, ownsSkin, findSkin, buySkin, setSkin } from '../game/cardskins.js';
 import { bankHome, bankRates, bankSkin, bankCredit, bankSave, bankMore, bankCards, bankSkins, bankQR, bankStatusBar, setBankSkin, bankP2P } from './bank_skins.js';
 import { homeData, quote, sendMoney, cancelTx, relink, errText } from '../game/online.js';
 import { CG, slotsView, playSlots, rouletteView, playRoulette, blackjackView, bjDeal, bjHit, bjDouble, bjFinish, diceView, playDice } from './casino_games.js';
@@ -36,6 +37,23 @@ export const bankApp = {
       sfx('ok'); toast(r.now ? T('Виртуальная карта уже в приложении', 'Віртуальна картка вже в застосунку', 'Your virtual card is ready') : T('Карта выпущена — курьер уже едет', 'Картку випущено — курʼєр уже їде', 'Card issued — a courier is on the way'), 'g'); rerender();
     },
     cmain: (key) => { setPrimary(key); sfx('ok'); rerender(); },
+    cskin: async (key) => {
+      // design picker: your designs to put on, the rest to buy, limited ones only from drives
+      for (;;) {
+        const cur = skinState().on[key] || '';
+        const tile = (k) => { const own = ownsSkin(k.id); const lim = k.price < 0; return `<button class="cs-tile ${cur === k.id ? 'on' : ''} ${!own && lim ? 'locked' : ''}" data-r="${k.id}"><span class="cs-card" style="background:${k.css};color:${k.fg}">${k.deco || ''}<i>•••• ${esc(ownedCard(key)?.pan || '0000')}</i></span><b>${esc(L(k.n))}</b><small>${cur === k.id ? '✓ ' + T('на карте', 'на картці', 'on the card') : own ? T('ваш', 'ваш', 'yours') : lim ? '🔒 ' + T('найти на накопителе', 'знайти на накопичувачі', 'find on a drive') : fmt(k.price)}</small></button>`; };
+        const v = await sheet(`<h2>🎨 ${T('Дизайн карты', 'Дизайн картки', 'Card design')}</h2><p class="small m">${T('Как платные дизайны в моно: бонусы карты не меняются, только вид. Лимитированные дизайны иногда лежат на старых флешках и телефонах.', 'Як платні дизайни в моно: бонуси картки не змінюються, лише вигляд. Лімітовані дизайни іноді лежать на старих флешках і телефонах.', 'Like paid designs in mono: the perks stay, only the look changes. Limited designs sometimes turn up on old drives and phones.')}</p><div class="cs-grid"><button class="cs-tile ${!cur ? 'on' : ''}" data-r="__none"><span class="cs-card" style="background:linear-gradient(135deg,#4b5563,#1f2937);color:#fff"><i>${T('стандарт', 'стандарт', 'default')}</i></span><b>${T('Как у банка', 'Як у банку', 'Bank default')}</b><small>${!cur ? '✓' : ''}</small></button>${CARD_SKINS.map(tile).join('')}</div>`, { after(el) { el.querySelectorAll('[data-r]').forEach((b) => { b.onclick = () => resolveSheet(b.dataset.r); }); } });
+        if (!v) return;
+        if (v === '__none') { setSkin(key, null); sfx('tap'); rerender(); return; }
+        const k = findSkin(v); if (!k) return;
+        if (!ownsSkin(v)) {
+          if (k.price < 0) { toast(T('Этот дизайн можно только найти — на флешках, дисках, в телефонах', 'Цей дизайн можна лише знайти — на флешках, дисках, у телефонах', 'This one can only be found — on drives and phones'), 'r'); continue; }
+          if (!(await confirmBox(T(`Купить дизайн «${L(k.n)}»?`, `Купити дизайн «${L(k.n)}»?`, `Buy “${L(k.n)}”?`), fmt(k.price)))) continue;
+          const r = buySkin(v); if (!r.ok) { toast(r.msg || '—', 'r'); continue; }
+        }
+        setSkin(key, v); sfx('win'); toast(T('Новый дизайн на карте', 'Новий дизайн на картці', 'New design on the card'), 'g'); rerender(); return;
+      }
+    },
     cclose: async (key) => { if (await confirmBox(T('Закрыть карту?', 'Закрити картку?', 'Close the card?'), T('Бонусы этой карты перестанут действовать.', 'Бонуси цієї картки перестануть діяти.', 'Its perks will stop working.'), T('Закрыть', 'Закрити', 'Close'), undefined, true)) { closeCard(key); rerender(); } },
     bskin: (id) => { setBankSkin(id); sfx('ok'); toast(T('Оформление изменено', 'Оформлення змінено', 'Skin changed'), 'g'); rerender(); },
     bhide: () => { G.s.bank.hideBal = !G.s.bank.hideBal; rerender(); },

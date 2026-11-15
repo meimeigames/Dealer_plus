@@ -25,7 +25,7 @@ export function storageKind(it) {
   if (m.cat === 'electronics') {
     const t = m.art?.t;
     if (t === 'monitor') return /iMak/.test(m.name) ? 'laptop' : null;
-    return { laptop: 'laptop', tablet: 'tablet', camera: 'camera', drone: 'drone', box: 'laptop' }[t] || null;
+    return { laptop: 'laptop', tablet: 'tablet', camera: 'camera', drone: 'drone', box: 'laptop', vr: 'console' }[t] || null;
   }
   if (m.cat === 'consoles') return CONSOLE_T.includes(m.art?.t) ? 'console' : null;
   return null;

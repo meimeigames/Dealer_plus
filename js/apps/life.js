@@ -23,7 +23,7 @@ import { PROPS, propPrice, propRent, acquireProp, releaseProp } from '../game/bu
 import { tripOptions, startTrip, inTransit } from '../game/travel.js';
 import { regionMult } from '../game/economy.js';
 import { pawnShop, buyPawn } from '../game/sources.js';
-import { pawnSell } from '../game/sell.js';
+import { pawnSell, charisma } from '../game/sell.js';
 import { advance } from '../game/sim.js';
 import { cityName } from './common.js';
 import { sfx } from '../ui/sfx.js';
@@ -37,7 +37,7 @@ function profMain() {
   const car = s.car ? getItem(s.car) : null;
   const pub = publicProfile();
   return `<div class="card pp-mini" data-a="open" data-v="profile" data-w="custom">${pAvatar(pub, s.player.name, 'md')}<div class="grow"><b>${esc(s.player.name)}</b>${titleChip(pub)}<div class="small m">🎨 ${T('Аватар, рамка, баннер, титул — настроить', 'Аватар, рамка, банер, титул — налаштувати', 'Avatar, frame, banner, title — customize')}</div></div><span class="m">›</span></div>
-  <div class="card"><div class="levelrow"><div class="lv">${s.level}</div><div class="grow"><b style="font-size:19px">${esc(s.player.name)}</b><div class="small m">${countryOf(s.player.city).flag} ${esc(cityName())} · ★ ${repScore() ? repScore().toFixed(2) : '—'} (${s.rep.n})</div>${bar((s.xp / xpNeed(s.level)) * 100, 'var(--acc2)')}<div class="tiny m">XP ${s.xp} / ${xpNeed(s.level)}</div></div></div></div>
+  <div class="card"><div class="levelrow"><div class="lv">${s.level}</div><div class="grow"><b style="font-size:19px">${esc(s.player.name)}</b><div class="small m">${countryOf(s.player.city).flag} ${esc(cityName())} · ★ ${repScore() ? repScore().toFixed(2) : '—'} (${s.rep.n}) · 🗣 ${T('харизма', 'харизма', 'charisma')} ${Math.round(charisma())}</div>${bar((s.xp / xpNeed(s.level)) * 100, 'var(--acc2)')}<div class="tiny m">XP ${s.xp} / ${xpNeed(s.level)}</div></div></div></div>
     ${noNeeds() ? `<div class="card small">🍔⚡ ${T('Еда и энергия выключены в настройках: голода и усталости нет, действия занимают игровое время.', 'Їжа та енергія вимкнені в налаштуваннях: голоду й утоми немає, дії займають ігровий час.', 'Food & energy are off in Settings: no hunger or tiredness, actions take game time.')}</div>` : ''}
     <div class="stats"><div class="stat"><small>⚡ ${T('Энергия', 'Енергія', 'Energy')}</small><b data-live="energy">${Math.round(s.energy)}</b>${bar(s.energy, s.energy < 25 ? 'var(--red)' : '')}</div><div class="stat"><small>🍔 ${T('Сытость', 'Ситість', 'Food')}</small><b data-live="food">${Math.round(s.food)}</b>${bar(s.food, 'var(--yel)')}</div></div>
     <div class="btns"><button class="btn" data-a="eatMenu">🍔 ${T('Поесть', 'Поїсти', 'Eat')}</button><button class="btn dark" data-a="sleepMenu">🌙 ${T('Спать', 'Спати', 'Sleep')}</button></div>

@@ -15,6 +15,8 @@ import { ensureDaily, questProgress, questText, claimQuest, STORY, ACH, achTier,
 import { UPGRADES, upLevel, upCost, UP_MAX, spend, getStat, netWorth, repScore, addXP } from '../game/player.js';
 import { newsText } from '../game/news.js';
 import { liveBoard, LIVE } from '../game/online.js';
+import { wifiPicker, burnCard } from './shadow_apps.js';
+import { currentNet } from '../game/shadow.js';
 import { pAvatar, titleChip, publicProfile } from '../game/profile.js';
 import { playerView, playerActions } from './players.js';
 import { onlineEnabled, isRegistered, register, offlineBoard, friendRequest, friendRespond, nudge, errText, submit, serverSource, serverUrl, setServer, clearServer, inviteLink, ping, HOME, homeData, sync } from '../game/online.js';
@@ -163,6 +165,7 @@ function setMain() {
   const DF = dv();
   return `<div class="card"><h3>🎚 ${T('Сложность', 'Складність', 'Difficulty')}</h3><div class="seg mt">${Object.values(DIFF).map((d) => `<button class="${DF.id === d.id ? 'on' : ''}" data-a="diff" data-v="${d.id}">${d.icon} ${d.n()}</button>`).join('')}</div><div class="d mt">${DF.d()}</div></div>
     <div class="card"><h3>🍔⚡ ${T('Еда и энергия', 'Їжа та енергія', 'Food & energy')}</h3><div class="seg mt"><button class="${!noNeeds() ? 'on' : ''}" data-a="needs" data-v="1">${T('Включены', 'Увімкнені', 'On')}</button><button class="${noNeeds() ? 'on' : ''}" data-a="needs" data-v="0">${T('Выключены', 'Вимкнені', 'Off')}</button></div><div class="d mt">${noNeeds() ? T(`Голода и усталости нет. Всё, что тратило энергию, теперь занимает игровое время: 1 энергия = ${MIN_PER_ENERGY} мин (смена ≈ 1,5 ч, встреча с продавцом ≈ 40 мин).`, `Голоду й утоми немає. Усе, що витрачало енергію, тепер займає ігровий час: 1 енергія = ${MIN_PER_ENERGY} хв (зміна ≈ 1,5 год, зустріч із продавцем ≈ 40 хв).`, `No hunger or tiredness. Whatever used energy now takes game time: 1 energy = ${MIN_PER_ENERGY} min (a shift ≈ 1.5 h, a meet‑up ≈ 40 min).`) : T('Нужно есть и спать, действия тратят энергию. Выключите, чтобы вместо энергии действия занимали игровое время.', 'Треба їсти й спати, дії витрачають енергію. Вимкніть, щоб замість енергії дії займали ігровий час.', 'You eat and sleep, actions use energy. Switch off to make actions take game time instead.')}</div></div>
+    ${burnCard()}<div class="card"><h3>📶 Wi‑Fi</h3><div class="row between"><span>${esc(currentNet().n)}</span><button class="btn xs dark" data-a="wifiPick">${T('Сменить', 'Змінити', 'Switch')}</button></div></div>
     <div class="card"><h3>🎁 ${T('Промокод', 'Промокод', 'Promo code')}</h3><div class="row mt" style="gap:8px"><input class="input grow" id="promo-in" placeholder="${T('Введите промокод', 'Введіть промокод', 'Enter a code')}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn" data-a="promo">${T('Активировать', 'Активувати', 'Redeem')}</button></div>${usedPromos().length ? `<div class="small m mt">${T('Активировано', 'Активовано', 'Redeemed')}: ${usedPromos().length}</div>` : ''}</div>
     <div class="card"><h3>${T('Язык', 'Мова', 'Language')}</h3><div class="opt-grid mt">${LANGS.map((l) => `<button class="${lang() === l.id ? 'on' : ''}" data-a="lang" data-v="${l.id}">${l.flag} ${l.name}</button>`).join('')}</div></div>
     <div class="card"><h3>${T('Валюта отображения', 'Валюта відображення', 'Display currency')}</h3><div class="d">${T('«Местная» — валюта страны, где вы сейчас.', '«Місцева» — валюта країни, де ви зараз.', '“Local” follows the country you’re in.')}</div><div class="chips wrap mt"><button class="chip${s.settings.cur === 'auto' ? ' on' : ''}" data-a="cur" data-v="auto">${T('Местная', 'Місцева', 'Local')}</button>${Object.keys(CURRENCIES).map((c) => `<button class="chip${s.settings.cur === c ? ' on' : ''}" data-a="cur" data-v="${c}">${c} ${CURRENCIES[c].sym}</button>`).join('')}</div></div>
@@ -178,6 +181,7 @@ export const settingsApp = {
   name: ['Настройки', 'Налаштування', 'Settings'], colors: ['#8a94a6', '#5d6677'],
   views: { main: setMain },
   actions: {
+    wifiPick: () => wifiPicker(),
     lang: (v) => { G.s.player.lang = v; setLang(v); save(); refreshAll(); },
     cur: (v) => { G.s.settings.cur = v; save(); refreshAll(); },
     snd: (v) => { G.s.settings.sound = v === '1'; rerender(); },

@@ -11,7 +11,9 @@ import { questsApp, upgradesApp, newsApp, statsApp, ratingApp, settingsApp } fro
 import { appstoreApp, vpnApp, darkApp } from './appstore.js';
 import { hwApp, buildApp, computerApp } from './pc_apps.js';
 import { msgApp, tgApp } from './social.js';
-import { autoApp, ymApp, supplierApp } from './shops2_apps.js';
+import { autoApp, ymApp } from './shops2_apps.js';
+import { supplierB2BApp as supplierApp } from './venues_app.js';
+import { probivApp, radarApp } from './shadow_apps.js';
 
 export const APPS = [
   appstoreApp, vpnApp, darkApp,
@@ -22,6 +24,6 @@ export const APPS = [
   jobsApp, labApp, freeApp, legitApp,
   mapApp, pawnApp, newsApp, ratingApp,
   statsApp, profileApp, inventory,
-  hwApp, buildApp, computerApp, msgApp, tgApp, autoApp, ymApp, supplierApp,
+  hwApp, buildApp, computerApp, msgApp, tgApp, autoApp, ymApp, supplierApp, probivApp, radarApp,
 ];
 export const DOCK = ['market', 'inventory', 'jobs', 'map'];

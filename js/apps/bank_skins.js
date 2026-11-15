@@ -5,6 +5,7 @@
 // and Monzi (GB) — minimal neobanks; Chaze (US), mBanko, Boursa+, Finecco, MUFJ, Emirat — classic
 // retail banks; Ziraatt, TBS, K‑Bang, Беларусик — big account card with a round menu.
 // The player can switch to any other bank skin.
+import { skinAttr } from '../game/cardskins.js';
 import { G, emit } from '../core/state.js';
 import { T, L, fmtDate } from '../core/i18n.js';
 import { esc, clamp } from '../core/util.js';
@@ -83,8 +84,8 @@ function cardsCarousel(slide, o = {}) {
   let start = list.findIndex((c) => c.key === CC.key);
   if (start < 0) start = Math.max(0, list.findIndex((c) => c.key === prim));
   setTimeout(() => { for (const t of document.querySelectorAll('.bk-cc-track')) if (!t._snap) { t._snap = 1; const el = t.children[start]; if (el) t.scrollLeft = el.offsetLeft - (t.clientWidth - el.offsetWidth) / 2; } }, 0);
-  const sub = (c) => `<div class="bk-cc-sub"><small>${esc(perkText(c.def)[0] || T('Обычная карта', 'Звичайна картка', 'Plain card'))}</small>${c.key === prim ? `<span class="bk-cc-main">★ ${T('Основная', 'Основна', 'Main')}</span>` : `<button class="bk-cc-btn" data-a="cmain" data-v="${c.key}">${T('Сделать основной', 'Зробити основною', 'Make main')}</button>`}</div>`;
-  return `<div class="bk-cc ${o.cls || ''}"><div class="bk-cc-track">${list.map((c, i) => `<div class="bk-cc-slide" data-key="cc_${c.key}" data-name="${esc(L(c.def.n))}">${slide(c, i)}${o.sub === false ? '' : sub(c)}</div>`).join('')}<div class="bk-cc-slide add" data-key="cc_add" data-name="${T('Новая карта', 'Нова картка', 'New card')}" data-a="tab" data-v="cards"><span>＋</span><b>${T('Оформить карту', 'Оформити картку', 'Get a card')}</b></div></div><div class="bk-cc-dots">${list.map((c, i) => `<i class="${i === start ? 'on' : ''}"></i>`).join('')}<i class="plus"></i></div></div>`;
+  const sub = (c) => `<div class="bk-cc-sub"><small>${esc(perkText(c.def)[0] || T('Обычная карта', 'Звичайна картка', 'Plain card'))}</small><button class="bk-cc-btn" data-a="cskin" data-v="${c.key}">🎨 ${T('Дизайн', 'Дизайн', 'Design')}</button>${c.key === prim ? `<span class="bk-cc-main">★ ${T('Основная', 'Основна', 'Main')}</span>` : `<button class="bk-cc-btn" data-a="cmain" data-v="${c.key}">${T('Сделать основной', 'Зробити основною', 'Make main')}</button>`}</div>`;
+  return `<div class="bk-cc ${o.cls || ''}"><div class="bk-cc-track">${list.map((c, i) => { const sk = skinAttr(c.key); return `<div class="bk-cc-slide ${sk.cls}" style="${sk.style}" data-key="cc_${c.key}" data-name="${esc(L(c.def.n))}">${slide(c, i)}${sk.deco ? `<span class="bk-skin-deco">${sk.deco}</span>` : ''}${o.sub === false ? '' : sub(c)}</div>`; }).join('')}<div class="bk-cc-slide add" data-key="cc_add" data-name="${T('Новая карта', 'Нова картка', 'New card')}" data-a="tab" data-v="cards"><span>＋</span><b>${T('Оформить карту', 'Оформити картку', 'Get a card')}</b></div></div><div class="bk-cc-dots">${list.map((c, i) => `<i class="${i === start ? 'on' : ''}"></i>`).join('')}<i class="plus"></i></div></div>`;
 }
 if (typeof document !== 'undefined' && !window.__bkcc) {
   window.__bkcc = 1;
@@ -295,7 +296,7 @@ export function bankCards() {
   ensureCards(k.id);
   const mine = ownedCards(), orders = s.bank.cardOrders || [];
   const cat = BANK_CARDS[k.id] || [];
-  const ownHTML = mine.map((c) => `<div class="bk-box">${plastic(c)}<div class="bk-perks">${perkText(c.def).map((p) => `<span>✓ ${esc(p)}</span>`).join('') || `<span class="m">${T('Обычная карта без бонусов', 'Звичайна картка без бонусів', 'A plain card, no perks')}</span>`}</div><div class="bk-row">${c.key === card().key ? `<span class="tag g">★ ${T('Основная', 'Основна', 'Main card')}</span>` : `<button class="btn xs" data-a="cmain" data-v="${c.key}">${T('Сделать основной', 'Зробити основною', 'Make main')}</button>`}${mine.length > 1 ? `<button class="bk-mini" data-a="cclose" data-v="${c.key}">${T('Закрыть', 'Закрити', 'Close')}</button>` : ''}</div></div>`).join('');
+  const ownHTML = mine.map((c) => `<div class="bk-box"><div class="${skinAttr(c.key).cls}" style="${skinAttr(c.key).style}">${plastic(c)}</div><button class="bk-cc-btn" data-a="cskin" data-v="${c.key}">🎨 ${T('Дизайн карты', 'Дизайн картки', 'Card design')}</button><div class="bk-perks">${perkText(c.def).map((p) => `<span>✓ ${esc(p)}</span>`).join('') || `<span class="m">${T('Обычная карта без бонусов', 'Звичайна картка без бонусів', 'A plain card, no perks')}</span>`}</div><div class="bk-row">${c.key === card().key ? `<span class="tag g">★ ${T('Основная', 'Основна', 'Main card')}</span>` : `<button class="btn xs" data-a="cmain" data-v="${c.key}">${T('Сделать основной', 'Зробити основною', 'Make main')}</button>`}${mine.length > 1 ? `<button class="bk-mini" data-a="cclose" data-v="${c.key}">${T('Закрыть', 'Закрити', 'Close')}</button>` : ''}</div></div>`).join('');
   const ordHTML = orders.map((o) => { const d = (BANK_CARDS[o.bank] || []).find((x) => x.id === o.id); return d ? `<div class="bk-box"><div class="bk-row"><span>🛵 ${esc(L(d.n))}</span><b>${T('курьер через', 'курʼєр через', 'courier in')} <span data-cd="${o.eta}"></span></b></div></div>` : ''; }).join('');
   const shop = cat.filter((d) => !isOwned(k.id, d.id) && !isOrdered(k.id, d.id)).map((d) => {
     const chk = cardCheck(d);

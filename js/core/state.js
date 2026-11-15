@@ -86,6 +86,8 @@ export function load() {
 function migrate(s) {
   const d = newState({ name: s.player?.name, lang: s.player?.lang, country: s.player?.country, city: s.player?.city });
   for (const k of Object.keys(d)) if (s[k] === undefined) s[k] = d[k];
+  // the Shenzhen wholesale moved from the Supplier into Yo.Market (AliBaoExpress tab)
+  if (Array.isArray(s.installed) && s.installed.includes('supplier') && !s.installed.includes('ymarket')) s.installed.push('ymarket');
   return s;
 }
 export function wipe() { try { localStorage.removeItem(SAVE_KEY); } catch {} G.s = null; }

@@ -101,7 +101,7 @@ const ymDo = async (id, split) => {
   if (r.ok) { sfx('cash'); toast(T('Заказ оформлен, доставка сегодня', 'Замовлення оформлено, доставка сьогодні', 'Ordered, arriving today'), 'g'); } else toast(r.msg, 'r');
   rerender();
 };
-export const ymApp = {
+const ymBase = {
   id: 'ymarket', glyph: 'bag', lvl: 2,
   name: ['Ё.Маркет', 'Ё.Маркет', 'Yo.Market'], colors: ['#ffdb4d', '#f5b700'], glyphColor: '#1a1a1a',
   views: { main: ymMain },
@@ -204,10 +204,8 @@ function supLot(p) {
       <ul class="sup-rl"><li>📉 ${T('недовложение — пара коробок «потерялась» (честные продавцы с ★4.3+ вернут юани)', 'недовкладення — пара коробок «загубилася» (чесні продавці з ★4.3+ повернуть юані)', 'short count — a couple of boxes “went missing” (honest ★4.3+ sellers refund the yuan)')}</li><li>🔀 ${T('пересорт — часть партии старой моделью', 'пересорт — частина партії старою моделлю', 'mixed‑up models — some boxes hold an older model')}</li><li>📦 ${T('вскрытые возвраты с дефектами', 'розкриті повернення з дефектами', 'opened returns with defects')}</li><li>🎭 ${T('клоны 1:1 в оригинальных коробках — таможня может изъять и оштрафовать', 'клони 1:1 в оригінальних коробках — митниця може вилучити й оштрафувати', '1:1 clones in original boxes — customs may seize them and fine you')}</li><li>🇨🇳 ${T('китайская прошивка без Google — перепрошивка в мастерской', 'китайська прошивка без Google — перепрошивка в майстерні', 'Chinese ROM without Google — reflash in the workshop')}</li><li>🛃 ${T('в карго: задержка на таможне с доначислением, помятая коробка', 'у карго: затримка на митниці з донарахуванням, помʼята коробка', 'in cargo: a customs hold with extra duty, a crushed box')}</li></ul></div>
     ${btn}`;
 }
-export const supplierApp = {
-  id: 'supplier', glyph: 'truck', lvl: 3,
-  name: ['Поставщик', 'Постачальник', 'Supplier'], colors: ['#ff7a1a', '#e2480f'], glyphColor: '#fff',
-  views: { main: supMain, lot: supLot, box: boxPage, obox: oboxPage },
+const aliOld = {
+  views: { ali: supMain, lot: supLot, box: boxPage, obox: oboxPage },
   actions: {
     supbrand: (b) => { SV.brand = b || null; rerender(); },
     boxorder: async (id) => {
@@ -250,7 +248,7 @@ export const supplierApp = {
         const x = r.rep;
         sfx(x.short || x.resort || x.opened ? 'err' : 'win');
         toast(x.short ? T(`Пересчитали: ${x.got} из ${x.qty} шт${x.refund ? `, вернули ${x.refund.toLocaleString('ru')} ¥` : ' — денег не вернули'}`, `Перерахували: ${x.got} з ${x.qty} шт${x.refund ? `, повернули ${x.refund.toLocaleString('ru')} ¥` : ' — грошей не повернули'}`, `Counted: ${x.got} of ${x.qty} pcs${x.refund ? `, ${x.refund.toLocaleString('ru')} ¥ refunded` : ' — no refund'}`) : x.resort ? T(`Пересорт: ${x.resort} коробок с другой моделью`, `Пересорт: ${x.resort} коробок з іншою моделлю`, `Mix‑up: ${x.resort} boxes of another model`) : T('Партия ваша! Товар на складе в Шэньчжэне', 'Партія ваша! Товар на складі в Шеньчжені', 'The lot is yours! Goods are in Shenzhen'), x.short || x.resort ? 'r' : 'g');
-        go('main');
+        go('ali');
       } else toast(r.msg, 'r');
       rerender();
     },
@@ -259,4 +257,15 @@ export const supplierApp = {
       if (n > freeSpace() && !(await confirmBox(T('Дома не хватит места', 'Вдома не вистачить місця', 'Not enough room at home'), T(`Едет ${n} шт, а свободно ${freeSpace()} мест. Склад будет переполнен — новые вещи не влезут, пока не продадите часть. Арендуйте склад в «Недвижимости → Коммерция».`, `Їде ${n} шт, а вільно ${freeSpace()} місць. Склад буде переповнений — нові речі не влізуть, поки не продасте частину. Орендуйте склад у «Нерухомості → Комерція».`, `${n} pcs are coming but only ${freeSpace()} slots are free. Storage will overflow until you sell some. Rent a warehouse in Real estate → Commercial.`), T('Всё равно отправить', 'Все одно відправити', 'Ship anyway')))) return;
       const r = cargoHome(); if (r.ok) { sfx('ok'); toast(T(`Карго: ${r.n} шт, ${fmt(r.fee)}. Будет через 2 дня`, `Карго: ${r.n} шт, ${fmt(r.fee)}. Буде за 2 дні`, `Cargo: ${r.n} pcs, ${fmt(r.fee)}. Arrives in 2 days`), 'g'); } else if (r.msg) toast(r.msg, 'r'); rerender(); },
   },
+};
+// Yo.Market: the shop itself + the old Shenzhen wholesale, now the «AliBaoExpress» tab
+export const ymApp = {
+  ...ymBase,
+  tabs: [
+    { v: 'main', label: ['Ё.Маркет', 'Ё.Маркет', 'Yo.Market'], icon: 'bag' },
+    { v: 'ali', label: ['АлиБаоЭкспресс', 'АліБаоЕкспрес', 'AliBaoExpress'], icon: 'box' },
+  ],
+  tabOf: (v) => (v === 'main' ? 'main' : 'ali'),
+  views: { ...ymBase.views, ...aliOld.views },
+  actions: { ...ymBase.actions, ...aliOld.actions },
 };

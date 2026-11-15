@@ -39,10 +39,10 @@ const RERENDER_ON = ['pc', 'tg', 'ym', 'sup', 'chats', 'inv', 'market', 'listing
 // which background events each app actually shows; anything else is ignored while it is open
 const WATCH = {
   market: ['market', 'chats', 'listings', 'support', 'inv', 'online'], inventory: ['inv', 'listings', 'deliveries', 'chats'], delivery: ['deliveries'],
-  auto: ['market', 'inv'], ymarket: ['ym', 'deliveries'], supplier: ['sup', 'inv', 'travel'], msgs: ['badges', 'log'], tg: ['tg', 'inv'], hw: ['deliveries'], build: ['pc', 'inv'], computer: ['inv', 'pc'], bank: ['bank', 'online'], stocks: ['stocks'], jobs: ['jobs', 'needs'], free: ['market', 'needs'], business: ['biz', 'inv'], realty: ['house'], travel: ['travel'],
+  auto: ['market', 'inv'], ymarket: ['ym', 'deliveries', 'sup', 'inv', 'travel'], supplier: ['biz'], msgs: ['badges', 'log'], tg: ['tg', 'inv'], hw: ['deliveries'], build: ['pc', 'inv'], computer: ['inv', 'pc'], bank: ['bank', 'online'], stocks: ['stocks'], jobs: ['jobs', 'needs'], free: ['market', 'needs'], business: ['biz', 'inv'], realty: ['house'], travel: ['travel'],
   gov: ['tax'], quests: ['quests'], numbers: ['numbers'], rating: ['online'], news: ['news'], profile: ['needs', 'house', 'quests'], repair: ['inv', 'parts'],
   appstore: ['apps'], vpn: ['apps'], dark: ['apps', 'inv', 'dark', 'money'],
-  shop: ['needs', 'inv'], auction: ['market', 'inv'], legit: ['inv'], lab: ['inv'], pawn: ['inv'], map: ['travel'], stats: [], settings: ['online'], upgrades: [], casino: [],
+  shop: ['needs', 'inv'], auction: ['market', 'inv'], legit: ['inv'], lab: ['inv'], pawn: ['inv'], map: ['travel'], stats: [], settings: ['online', 'wifi', 'apps'], probiv: ['inv', 'chats'], radar: ['inv', 'wifi'], upgrades: [], casino: [],
 };
 function safeRerender(ev) {
   if (!UI.app || G.catchup) return;

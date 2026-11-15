@@ -115,6 +115,11 @@ export function hotTick() {
     const it = getItem(x.id);
     const sold = s.hotSold?.[x.id];
     if (!it && !sold) continue; // given to a fence / an order / lost — off your hands
+    // hidden in a stash for the check (Radar): the police find nothing; now and then the stash is robbed
+    if (x.stash && it) {
+      if (Math.random() < 0.1) { removeItem(it.id); notify('dark', T('Тайник вскрыли', 'Схованку розкрили', 'Stash robbed'), T(`${x.title}: из тайника всё вынесли.`, `${x.title}: зі схованки все винесли.`, `${x.title}: someone emptied the stash.`)); }
+      continue;
+    }
     const p = it ? catchChance(it) : clamp((0.03 + 0.45 * (sold.tr || 0) / 100) * 0.8 * dv().crime, 0.01, 0.5); // "sold" = saves from before buyer checks
     if (Math.random() >= p) continue;
     // caught: no more checks for this item
