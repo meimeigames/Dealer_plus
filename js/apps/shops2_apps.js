@@ -103,20 +103,23 @@ const ymDo = async (id, split) => {
 };
 const ymBase = {
   id: 'ymarket', glyph: 'bag', lvl: 2,
-  name: ['Ё.Маркет', 'Ё.Маркет', 'Yo.Market'], colors: ['#ffdb4d', '#f5b700'], glyphColor: '#1a1a1a',
+  name: ['АлиБаоЭкспресс', 'АліБаоЕкспрес', 'AliBaoExpress'], colors: ['#ff6a1a', '#e62e04'], glyphColor: '#fff',
   views: { main: ymMain },
   actions: { ymbrand: (b) => { YV.brand = b; rerender(); }, ymbuy: (id) => ymDo(id, false), ymsplit: (id) => ymDo(id, true) },
 };
 
 // ---------------------------------------------------------------- Supplier
 const SV = { brand: null };
+// «Опт с ____»: Chinese wholesale cities rolling by (pure CSS, so re-renders don't restart it)
+const CN_CITIES = [['Шэньчжэня', 'Шеньчженя', 'Shenzhen'], ['Гуанчжоу', 'Гуанчжоу', 'Guangzhou'], ['Иу', 'Іу', 'Yiwu'], ['Шанхая', 'Шанхаю', 'Shanghai'], ['Пекина', 'Пекіна', 'Beijing'], ['Ханчжоу', 'Ханчжоу', 'Hangzhou'], ['Дунгуаня', 'Дунгуаня', 'Dongguan'], ['Фошаня', 'Фошаня', 'Foshan'], ['Чэнду', 'Ченду', 'Chengdu'], ['Сямэня', 'Сямена', 'Xiamen']];
+const cnTicker = () => `<span class="cn-roll"><span>${[...CN_CITIES, CN_CITIES[0]].map((c) => `<i>${esc(L(c))}</i>`).join('')}</span></span>`;
 function supMain() {
   const st = supState(), s = G.s, here = s.player.city === SZX;
   const ls = lots().filter((l) => !SV.brand || MODEL[l.m]?.brand === SV.brand).sort((a, b) => b.at - a.at);
   const brands = [...new Set(lots().map((l) => MODEL[l.m]?.brand))].filter(Boolean);
   const wait = inShenzhen();
   let h = `<div class="sup-top"><span>📍 ${esc(L(CITY[s.player.city].name))}</span><b>${st.cny.toLocaleString('ru')} ¥</b><button data-a="supcny">${T('Купить ¥', 'Купити ¥', 'Buy ¥')}</button>${st.cny ? `<button class="dk" data-a="supcnysell">${T('Продать ¥', 'Продати ¥', 'Sell ¥')}</button>` : ''}</div>
-    <div class="sup-hero"><b>${T('Опт из Шэньчжэня', 'Опт із Шеньчжені', 'Wholesale from Shenzhen')}</b><small>${T('Договоритесь о цене, привезите юани и заберите партию лично', 'Домовтеся про ціну, привезіть юані й заберіть партію особисто', 'Agree a price, bring yuan and collect the lot in person')}</small><div class="sup-steps"><span><i>1</i>${T('Торг', 'Торг', 'Haggle')}</span><span><i>2</i>${T('Юани', 'Юані', 'Yuan')}</span><span><i>3</i>${T('Вылет', 'Виліт', 'Fly')}</span><span><i>4</i>${T('Оплата', 'Оплата', 'Pay')}</span></div><small>1 $ = ${cnyRate().toFixed(2)} ¥</small></div>
+    <div class="sup-hero"><b class="cn-head">${T('Опт с', 'Опт з', 'Wholesale from')} ${cnTicker()}</b><small>${T('Договоритесь о цене, привезите юани и заберите партию лично', 'Домовтеся про ціну, привезіть юані й заберіть партію особисто', 'Agree a price, bring yuan and collect the lot in person')}</small><div class="sup-steps"><span><i>1</i>${T('Торг', 'Торг', 'Haggle')}</span><span><i>2</i>${T('Юани', 'Юані', 'Yuan')}</span><span><i>3</i>${T('Вылет', 'Виліт', 'Fly')}</span><span><i>4</i>${T('Оплата', 'Оплата', 'Pay')}</span></div><small>1 $ = ${cnyRate().toFixed(2)} ¥</small></div>
     ${wait.length ? `<div class="card hl"><b>📦 ${T(`Ваш товар в Шэньчжэне: ${wait.length} шт`, `Ваш товар у Шеньчжені: ${wait.length} шт`, `Your goods in Shenzhen: ${wait.length} pcs`)}</b><div class="small m">${T('Отправьте карго «под ключ» (12% от стоимости, 2 дня, таможня включена) или везите в багаже через «Путешествия» — с риском на таможне.', 'Надішліть карго «під ключ» (12% вартості, 2 дні, митниця включена) або везіть у багажі через «Подорожі» — з ризиком на митниці.', 'Send door‑to‑door cargo (12% of value, 2 days, customs included) or carry it via Travel — with a customs risk.')}</div><div class="btns"><button class="btn sm" data-a="supcargo">${T('Карго домой', 'Карго додому', 'Cargo home')}</button><button class="btn sm dark" data-a="open" data-v="travel">✈️ ${T('Лететь с багажом', 'Летіти з багажем', 'Fly with luggage')}</button></div></div>` : ''}
     <div class="chips wrap"><button class="chip${!SV.brand ? ' on' : ''}" data-a="supbrand" data-v="">${T('Все', 'Усі', 'All')}</button>${brands.map((b) => `<button class="chip${SV.brand === b ? ' on' : ''}" data-a="supbrand" data-v="${esc(b)}">${esc(b)}</button>`).join('')}</div>
     ${myBoxes().length ? `<h3 class="sub">📦 ${T('Мои боксы', 'Мої бокси', 'My boxes')}</h3>${myBoxes().slice(0, 6).map(myBoxRow).join('')}` : ''}
@@ -258,12 +261,12 @@ const aliOld = {
       const r = cargoHome(); if (r.ok) { sfx('ok'); toast(T(`Карго: ${r.n} шт, ${fmt(r.fee)}. Будет через 2 дня`, `Карго: ${r.n} шт, ${fmt(r.fee)}. Буде за 2 дні`, `Cargo: ${r.n} pcs, ${fmt(r.fee)}. Arrives in 2 days`), 'g'); } else if (r.msg) toast(r.msg, 'r'); rerender(); },
   },
 };
-// Yo.Market: the shop itself + the old Shenzhen wholesale, now the «AliBaoExpress» tab
+// AliBaoExpress (formerly Yo.Market): the store with Split + the «China wholesale» tab
 export const ymApp = {
   ...ymBase,
   tabs: [
-    { v: 'main', label: ['Ё.Маркет', 'Ё.Маркет', 'Yo.Market'], icon: 'bag' },
-    { v: 'ali', label: ['АлиБаоЭкспресс', 'АліБаоЕкспрес', 'AliBaoExpress'], icon: 'box' },
+    { v: 'main', label: ['Магазин', 'Магазин', 'Store'], icon: 'bag' },
+    { v: 'ali', label: ['Опт с Китая', 'Опт з Китаю', 'China wholesale'], icon: 'box' },
   ],
   tabOf: (v) => (v === 'main' ? 'main' : 'ali'),
   views: { ...ymBase.views, ...aliOld.views },

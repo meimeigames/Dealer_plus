@@ -24,7 +24,7 @@ import { jailTick } from './crime.js';
 import { rentTick } from './housing.js';
 import { reChatTick } from './realty_chat.js';
 import { dv } from './difficulty.js';
-import { tgTick } from './tg.js';
+import { tgTick, tgDealsTick } from './tg.js';
 import { ymTick, supTick, cargoArrived } from './shops2.js';
 import { bizHourly, bizDaily } from './business.js';
 import { venueHourly, vordersTick } from './venues.js';
@@ -34,7 +34,7 @@ import { dailyNews, seedNews } from './news.js';
 import { addItem, notify, stat, log, snapshotWorth } from './player.js';
 import { itemTitle } from './items.js';
 import { onlineTick } from './online.js';
-import { bannedTick } from './banned.js';
+import { bannedTick, bannedAdsTick } from './banned.js';
 import { burnTick } from './shadow.js';
 
 let timer = null;
@@ -147,7 +147,7 @@ export function tick(fast = false) {
   jailTick();
   rentTick();
   reChatTick();
-  tgTick();
+  tgTick(); tgDealsTick();
   ymTick();
   supTick();
   supportTick();
@@ -162,7 +162,7 @@ export function tick(fast = false) {
   bankTick();
   numbersTick();
   if (s.t % 10 === 0 && !catching) needsTick();
-  if (s.t % 60 === 0) { bizHourly(); venueHourly(); stocksTick(); mineHourly(); }
+  if (s.t % 60 === 0) { bizHourly(); venueHourly(); stocksTick(); mineHourly(); bannedAdsTick(); }
   if (s.t % 10 === 0) vordersTick();
   if (s.t % 15 === 0) storyTick();
   const d = Math.floor(s.t / 1440);

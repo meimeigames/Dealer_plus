@@ -545,3 +545,62 @@ grant execute on function public.gr_leaderboard(text, uuid, text) to anon;
 grant execute on function public.gr_set_profile(uuid, text, jsonb) to anon;
 grant execute on function public.gr_profile(text, uuid) to anon;
 grant execute on function public.gr_friend_request_nick(uuid, text, text) to anon;
+
+-- ================================================================ v4: world stats (Leaderboard → Countries) + Telega @usernames
+-- whole‑game numbers and a table of countries for the Leaderboard app
+create or replace function public.gr_world()
+returns json language sql stable security definer set search_path = public, extensions as $$
+  select json_build_object(
+    'players', (select count(*) from gr_players where not flagged),
+    'online', (select count(*) from gr_players where not flagged and last_submit > now() - interval '3 minutes'),
+    'today', (select count(*) from gr_players where not flagged and last_submit > now() - interval '1 day'),
+    'worth', (select round(coalesce(sum(worth), 0)) from gr_players where not flagged),
+    'countries', coalesce((select json_agg(c order by c.worth desc) from (
+      select p.region, count(*) as players, round(sum(p.worth)) as worth, round(avg(p.worth)) as avg,
+        count(*) filter (where p.last_submit > now() - interval '3 minutes') as online,
+        (select q.nick from gr_players q where q.region = p.region and not q.flagged order by q.worth desc limit 1) as top
+      from gr_players p where not p.flagged group by p.region) c), '[]'::json));
+$$;
+
+-- a Telega @username belongs to one player only (5–32 letters, digits, _; starts with a letter; case‑insensitive)
+create table if not exists public.gr_tg_names (
+  name text primary key,
+  shown text not null,
+  player uuid not null unique references public.gr_players(id) on delete cascade,
+  at timestamptz not null default now()
+);
+alter table public.gr_tg_names enable row level security;
+
+create or replace function public.gr_tg_check(p_name text, p_id uuid default null)
+returns json language sql stable security definer set search_path = public, extensions as $$
+  select json_build_object('ok', p_name ~ '^[A-Za-z][A-Za-z0-9_]{4,31}$',
+    'free', not exists(select 1 from gr_tg_names n where n.name = lower(p_name) and n.player is distinct from p_id));
+$$;
+
+create or replace function public.gr_tg_claim(p_id uuid, p_secret text, p_name text)
+returns json language plpgsql security definer set search_path = public, extensions as $$
+declare v_owner uuid;
+begin
+  if not gr_auth(p_id, p_secret) then raise exception 'auth'; end if;
+  if p_name is null or p_name !~ '^[A-Za-z][A-Za-z0-9_]{4,31}$' then return json_build_object('ok', false, 'err', 'format'); end if;
+  select player into v_owner from gr_tg_names where name = lower(p_name);
+  if v_owner is not null and v_owner <> p_id then return json_build_object('ok', false, 'err', 'taken'); end if;
+  delete from gr_tg_names where player = p_id;
+  insert into gr_tg_names(name, shown, player) values (lower(p_name), p_name, p_id);
+  return json_build_object('ok', true, 'name', p_name);
+exception when unique_violation then
+  return json_build_object('ok', false, 'err', 'taken');
+end $$;
+
+create or replace function public.gr_tg_release(p_id uuid, p_secret text)
+returns json language plpgsql security definer set search_path = public, extensions as $$
+begin
+  if not gr_auth(p_id, p_secret) then raise exception 'auth'; end if;
+  delete from gr_tg_names where player = p_id;
+  return json_build_object('ok', true);
+end $$;
+
+grant execute on function public.gr_world() to anon;
+grant execute on function public.gr_tg_check(text, uuid) to anon;
+grant execute on function public.gr_tg_claim(uuid, text, text) to anon;
+grant execute on function public.gr_tg_release(uuid, text) to anon;

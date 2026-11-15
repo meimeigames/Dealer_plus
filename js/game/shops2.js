@@ -99,7 +99,7 @@ export function ymBuy(x, split) {
     if (splitDebt() + x.price * 0.75 > splitLimit()) return { ok: false, msg: T(`Лимит сплита ${fmt(splitLimit())} исчерпан`, `Ліміт спліту ${fmt(splitLimit())} вичерпано`, `Split limit ${fmt(splitLimit())} reached`) };
   }
   const first = split ? Math.round(x.price * 25) / 100 : x.price;
-  if (!spend(first, 'buy', `${T('Ё.Маркет', 'Ё.Маркет', 'Yo.Market')}: ${itemTitle(x.it)}`)) return { ok: false, msg: T('Не хватает денег', 'Не вистачає грошей', 'Not enough money') };
+  if (!spend(first, 'buy', `${T('АлиБаоЭкспресс', 'АліБаоЕкспрес', 'AliBaoExpress')}: ${itemTitle(x.it)}`)) return { ok: false, msg: T('Не хватает денег', 'Не вистачає грошей', 'Not enough money') };
   const it = makeItem(new RNG(uid('ym')), { model: x.it.m, quality: 'new', fakeMult: 0, lockRate: 0 });
   it.v = x.it.v; it.sealed = true; it.cond = 100; it.defects = []; it.fake = 0; it.paid = x.price;
   if (split) {

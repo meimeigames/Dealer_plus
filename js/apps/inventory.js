@@ -137,7 +137,7 @@ function saleView() {
   const s = G.s;
   const ls = s.listings.map((l) => ({ l, it: getItem(l.itemId) })).filter((x) => x.it);
   const shopItems = s.inv.filter((i) => i.shop);
-  return `<h2 class="sec">${T('В продаже', 'У продажу', 'For sale')}</h2>${ls.length ? ls.map(({ l, it }) => row(it, `<b style="flex:none">${fmt(l.price)}</b>`, `👁 ${l.views} · 💬 ${l.offers}`)).join('') : `<p class="p">${T('Нет объявлений.', 'Немає оголошень.', 'No listings.')}</p>`}
+  return `<h2 class="sec">${T('В продаже', 'У продажу', 'For sale')}</h2>${ls.length ? ls.map(({ l, it }) => row(it, `<b style="flex:none">${fmt(l.price)}</b>`, `👁 ${l.views} · 💬 ${l.offers}${it.banned ? (l.mask ? ` · 🎭 «${esc(L(l.mask))}»` : ` · <span class="r">⛔ ${T('открыто — удалят', 'відкрито — видалять', 'open — will be removed')}</span>`) : ''}`)).join('') : `<p class="p">${T('Нет объявлений.', 'Немає оголошень.', 'No listings.')}</p>`}
     ${shopItems.length ? `<h3 class="sub">${T('На полках магазинов', 'На полицях магазинів', 'On store shelves')}</h3>` + shopItems.map((it) => row(it, `<b style="flex:none">${fmt(it.shopPrice)}</b>`, esc(s.biz.shops.find((x) => x.id === it.shop)?.name || ''), 'open', 'business')).join('') : ''}`;
 }
 

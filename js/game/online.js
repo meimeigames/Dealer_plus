@@ -320,3 +320,28 @@ export function startOnline() {
   timer = setInterval(() => { if (document.visibilityState === 'visible' && isRegistered()) sync().catch(() => {}); }, 45000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && isRegistered() && Date.now() - HOME.at > 15000) sync().catch(() => {}); });
 }
+
+// ---------------------------------------------------------------- whole‑game stats (Leaderboard → header and «Countries»)
+const WORLD = { at: 0, data: null, busy: false };
+export function worldStats(force = false) {
+  if (!onlineEnabled()) return null;
+  if (!WORLD.busy && (force || Date.now() - WORLD.at > 30000)) {
+    WORLD.busy = true; WORLD.at = Date.now();
+    rpc('gr_world', {}).then((d) => { WORLD.data = d; emit('online'); }).catch(() => {}).finally(() => { WORLD.busy = false; });
+  }
+  return WORLD.data;
+}
+
+// ---------------------------------------------------------------- Telega @username: one owner per name, checked by the server
+export const TG_NAME_RE = /^[A-Za-z][A-Za-z0-9_]{4,31}$/;
+export async function tgCheck(name) { return rpc('gr_tg_check', { p_name: name, p_id: G.s.online?.id || null }); }
+export async function tgClaim(name) {
+  const o = G.s.online;
+  if (!onlineEnabled() || !o?.id) return { ok: true, local: true, name };
+  return rpc('gr_tg_claim', { p_id: o.id, p_secret: o.secret, p_name: name });
+}
+export async function tgRelease() {
+  const o = G.s.online;
+  if (!onlineEnabled() || !o?.id) return { ok: true };
+  return rpc('gr_tg_release', { p_id: o.id, p_secret: o.secret });
+}

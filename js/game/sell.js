@@ -4,7 +4,7 @@ import { RNG } from '../core/rng.js';
 import { T, L } from '../core/i18n.js';
 import { uid, clamp, chance, rnd, pickR } from '../core/util.js';
 import { countryOf, distanceKm, CITY } from '../data/world.js';
-import { DEFECTS, LUXURY_CATS, CATS } from '../data/catalog.js';
+import { DEFECTS, LUXURY_CATS, CATS, MODEL } from '../data/catalog.js';
 import { itemValue, itemTitle, isVehicle, defectName, fakeLabel } from './items.js';
 import { nicePrice, fmt } from '../core/money.js';
 import { makeBuyer, TRAITS, PH, say, fill } from './npc.js';
@@ -45,15 +45,16 @@ export function buyerView(it, l, city) {
   const shadow = { ...it, defects: it.defects.map((d) => ({ ...d, known: d.known && (l?.disclose || DEFECTS[d.c]?.vis === 'visible') })), fakeKnown: fakeDisclosed };
   return itemValue(shadow, city, 'known') * (1 + collectionBonus(it.cat));
 }
-export function listItem(itemId, platform, price, disclose = true) {
+export function listItem(itemId, platform, price, disclose = true, mask = null) {
   const s = G.s;
   const it = getItem(itemId);
   if (!it || it.shop) return false;
   if (isBanned()) return false;
   const old = myListing(itemId);
   if (old) { old.price = price; old.platform = platform; old.disclose = disclose; emit('listings'); return true; }
-  s.listings.unshift({ id: uid('L'), itemId, platform, price, disclose, at: s.t, views: 0, city: s.player.city, offers: 0 });
+  s.listings.unshift({ id: uid('L'), itemId, platform, price, disclose, at: s.t, views: 0, city: s.player.city, offers: 0, ...(it.banned ? { mask } : {}) });
   it.listed = true;
+  if (it.banned) it.olx = mask ? 'mask' : 'open';
   stat('listed');
   log('sell', `${itemTitle(it)} — ${fmt(price)}`);
   emit('listings');
@@ -62,7 +63,7 @@ export function listItem(itemId, platform, price, disclose = true) {
 export function unlist(itemId) {
   const s = G.s;
   s.listings = s.listings.filter((l) => l.itemId !== itemId);
-  const it = getItem(itemId); if (it) it.listed = false;
+  const it = getItem(itemId); if (it) { it.listed = false; delete it.olx; }
   s.chats = s.chats.filter((c) => !(c.kind === 'sell' && c.itemId === itemId && c.st === 'open'));
   emit('listings');
 }
@@ -104,7 +105,7 @@ export function sellTick() {
     const val = buyerView(it, l, city) * g.valK * (pf.bonus || 1) * (1 + upLevel('photo') * 0.03) * (0.94 + (l.photoQ ?? 0.35) * 0.18);
     const ratio = val / Math.max(0.01, l.price);
     const attract = clamp(Math.pow(ratio, 3.2), 0.02, 4);
-    const rate = (1 / 95) * g.rateK * demand(it.cat, city) * repFactor() * (1 + upLevel('clients') * 0.22) * attract * pf.rate * (l.city === city ? 1 : 0.8) * ((G.s.boostUntil || 0) > G.s.t ? 2 : 1);
+    const rate = (1 / 95) * (MODEL[it.m]?.liquid || 1) * (l.mask ? 0.8 : 1) * g.rateK * demand(it.cat, city) * repFactor() * (1 + upLevel('clients') * 0.22) * attract * pf.rate * (l.city === city ? 1 : 0.8) * ((G.s.boostUntil || 0) > G.s.t ? 2 : 1);
     if (chance(rate * 0.5)) l.views += 1 + Math.floor(Math.random() * 4);
     const open = s.chats.filter((c) => c.kind === 'sell' && c.itemId === it.id && c.st === 'open').length;
     if (open < 2 && chance(rate)) newBuyerChat(it, l, val);

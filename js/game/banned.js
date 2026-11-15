@@ -15,6 +15,7 @@ import { MODEL, MODELS } from '../data/catalog.js';
 import { getItem, removeItem, addItem, earn, charge, spend, stat, notify, log, addXP } from './player.js';
 import { itemValue, itemTitle, makeItem } from './items.js';
 import { arrest, policeFine } from './crime.js';
+import { strike } from './support.js';
 
 export const BMARKS = {
   batch: { n: ['Номер партии в базе таможни', 'Номер партії в базі митниці', 'Batch number in the customs database'], ic: '🛃', w: 30, fix: 'svc', how: ['Перебить номер партии у «мастера»', 'Перебити номер партії у «майстра»', 'Have a “master” re‑mark the batch'] },
@@ -41,6 +42,19 @@ export function saleRisk(it) {
 // a buyer who complains afterwards: 5–7 %
 export const complainRisk = (it) => +(0.05 + (hashId(it.id + '|c') % 21) / 1000).toFixed(3);
 
+// wholesale boxes of forbidden goods: a lot of value in one box, and buyers want them (more of them, faster)
+export const isBox = (it) => !!MODEL[it?.m]?.bulk;
+export const boxInfo = (it) => { const m = MODEL[it?.m]; return m?.bulk ? { n: m.bulk, unit: L(m.unit || ['шт', 'шт', 'pcs']) } : null; };
+export const liquidity = (it) => MODEL[it?.m]?.liquid || 1;
+// what to call it on Oliks so the moderators and the police don't look twice
+export const DISGUISES = [
+  ['Коробки для переезда (б/у), много', 'Коробки для переїзду (б/в), багато', 'Moving boxes (used), lots'],
+  ['Бытовая химия оптом, остатки склада', 'Побутова хімія оптом, залишки складу', 'Household chemicals, warehouse leftovers'],
+  ['Подарочные наборы оптом', 'Подарункові набори оптом', 'Gift sets, wholesale'],
+  ['Канцтовары оптом — закрытие магазина', 'Канцтовари оптом — закриття магазину', 'Stationery wholesale — shop closing'],
+  ['Автозапчасти, неликвид со склада', 'Автозапчастини, неліквід зі складу', 'Car parts, dead stock'],
+  ['Сувенирная продукция оптом', 'Сувенірна продукція оптом', 'Souvenirs, wholesale'],
+];
 export function makeBanned(it, rng) {
   const all = Object.keys(BMARKS);
   const marks = rng.sample(all, rng.int(3, 4));
@@ -51,12 +65,22 @@ export function makeBanned(it, rng) {
 }
 // a forbidden lot for the Shade feed
 export function bannedListing(rng, city) {
-  const m = rng.pick(BANNED_MODELS());
+  const m = rng.pick(BANNED_MODELS().filter((x) => !x.bulk));
   const it = makeItem(rng, { model: m.id, quality: rng.chance(0.7) ? 'good' : 'any', fakeMult: 0, lockRate: 0 });
   it.fake = 0; it.docs = false; it.grey = true; it.defects = it.defects.filter((d) => d.known);
   makeBanned(it, rng);
   const clean = itemValue(it, city, 'true', { clean: true });
   return { it, clean, price: nicePrice(Math.max(5, clean * rng.float(0.45, 0.68)), countryOf(city).cur) };
+}
+
+// a wholesale box of forbidden goods for the Shade feed: dearer, and resold quickly at a good price
+export function bannedBoxListing(rng, city) {
+  const m = rng.pick(BANNED_MODELS().filter((x) => x.bulk));
+  const it = makeItem(rng, { model: m.id, quality: 'good', fakeMult: 0, lockRate: 0 });
+  it.fake = 0; it.docs = false; it.grey = true; it.defects = [];
+  makeBanned(it, rng);
+  const clean = itemValue(it, city, 'true', { clean: true });
+  return { it, clean, price: nicePrice(Math.max(5, clean * rng.float(0.5, 0.64)), countryOf(city).cur) };
 }
 
 // ---------------------------------------------------------------- wiping traces
@@ -81,13 +105,13 @@ const bs = () => { const s = G.s; s.bsales ||= { open: [], after: [], log: [] };
 export const openSales = () => bs().open;
 export const saleLog = () => bs().log;
 export const afterSales = () => bs().after;
-export const offerFor = (it) => nicePrice(itemValue(it, G.s.player.city, 'true', { clean: true }) * (0.88 - 0.25 * traceOfB(it) / 100), countryOf(G.s.player.city).cur);
+export const offerFor = (it) => nicePrice(itemValue(it, G.s.player.city, 'true', { clean: true }) * ((isBox(it) ? 0.95 : 0.88) - 0.25 * traceOfB(it) / 100), countryOf(G.s.player.city).cur);
 export function startSale(itemId) {
   const it = getItem(itemId);
   if (!it?.banned) return { ok: false };
   const r = new RNG(uid('bs'));
   const price = Math.round(offerFor(it) * r.float(0.92, 1.12));
-  const mins = r.int(40, 90); // the drop: about a minute
+  const mins = isBox(it) ? r.int(20, 45) : r.int(40, 90); // the drop: about a minute (boxes are snapped up faster)
   removeItem(it.id);
   bs().open.push({ id: uid('bo'), item: it, title: itemTitle(it), price, at: G.s.t + mins, start: G.s.t, risk: saleRisk(it), complain: complainRisk(it) });
   stat('bannedListed'); log('dark', `⛔ ${itemTitle(it)}`);
@@ -154,3 +178,24 @@ export function bannedTick() {
 export const banLabel = (it) => T('⛔ Запрещённое', '⛔ Заборонене', '⛔ Forbidden') + (it?.banned ? ` · ${T('след', 'слід', 'trace')} ${traceOfB(it)}%` : '');
 export const blockMsg = () => T('Запрещённое можно сбыть только через Тень (вкладка «Сбыт»)', 'Заборонене можна збути лише через Тінь (вкладка «Збут»)', 'Forbidden goods can only be sold through the Shade (“Sell” tab)');
 export const bMarkName = (k) => L(BMARKS[k].n);
+
+// ---------------------------------------------------------------- forbidden goods on Oliks & co.
+// Listed openly, the moderators take it down within a few hours (30 % an hour) and the account gets a strike;
+// under a disguise («moving boxes», «gift sets»…) only 3 % an hour. At the deal the police risk is higher for an
+// open ad (see hot.js dealRisk).
+export function bannedAdsTick() {
+  const s = G.s;
+  if (!s.listings?.length) return;
+  for (const l of s.listings.slice()) {
+    const it = getItem(l.itemId);
+    if (!it?.banned || l.frozen) continue;
+    const r = new RNG(`mod|${l.id}|${s.t}`);
+    if (!r.chance(l.mask ? 0.03 : 0.3)) continue;
+    s.listings = s.listings.filter((x) => x !== l);
+    it.listed = false; delete it.olx;
+    s.chats = (s.chats || []).filter((c) => !(c.kind === 'sell' && c.itemId === it.id && c.st === 'open'));
+    strike(T(`Объявление «${l.mask ? L(l.mask) : itemTitle(it)}» удалено модерацией: запрещённый товар`, `Оголошення «${l.mask ? L(l.mask) : itemTitle(it)}» видалено модерацією: заборонений товар`, `Ad “${l.mask ? L(l.mask) : itemTitle(it)}” removed by moderators: forbidden goods`));
+    stat('bannedAdsRemoved');
+    emit('listings');
+  }
+}

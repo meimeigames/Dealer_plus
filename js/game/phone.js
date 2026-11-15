@@ -14,7 +14,7 @@ import { spend, earn, charge, notify, addItem, getItem, removeItem, canStore, ad
 import { strike } from './support.js';
 import { arrest } from './crime.js';
 import { makeHot, watchHot } from './hot.js';
-import { bannedListing } from './banned.js';
+import { bannedListing, bannedBoxListing } from './banned.js';
 
 // ---------------------------------------------------------------- installed apps
 export function ensurePhone(allApps) {
@@ -100,6 +100,7 @@ export const DARK_KINDS = {
   grey: { ic: '📦', n: ['Серый импорт', 'Сірий імпорт', 'Grey import'] },
   replica: { ic: '🎭', n: ['Реплика 1:1', 'Репліка 1:1', '1:1 replica'] },
   banned: { ic: '⛔', n: ['Запрещённое', 'Заборонене', 'Forbidden'] },
+  opt: { ic: '🗃', n: ['Опт‑коробки', 'Опт‑коробки', 'Wholesale boxes'] },
 };
 function darkFeed() {
   const s = G.s;
@@ -130,6 +131,11 @@ function darkFeed() {
     const b = bannedListing(rng, city);
     const pSting = 0.03 + (b.price / b.clean < 0.5 ? 0.06 : 0);
     s.dark.feed.splice(rng.int(0, s.dark.feed.length), 0, { id: uid('dk'), item: b.it, kind: 'banned', price: b.price, seller: rng.pick(SELLERS), sting: rng.chance(pSting), clean: b.clean });
+  }
+  // wholesale boxes of forbidden goods: 1–2 per batch — dear, but they sell fast and well
+  for (let i = 0, n = rng.int(1, 2); i < n; i++) {
+    const b = bannedBoxListing(rng, city);
+    s.dark.feed.splice(rng.int(0, s.dark.feed.length), 0, { id: uid('dk'), item: b.it, kind: 'opt', price: b.price, seller: rng.pick(SELLERS), sting: rng.chance(0.04), clean: b.clean });
   }
   // now and then: a flagship in great shape for a fraction of its price. Usually bait, sometimes a real jackpot
   if (rng.chance(0.4)) {

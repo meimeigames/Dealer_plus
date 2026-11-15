@@ -14,6 +14,18 @@ export function buildBanned(add) {
   x('Пиротехника без сертификата (ящик)', 150, 2024, 'x1_lighter', 'fireworks', { brand: 'Салют‑Опт' });
   x('Немаркированные сигареты (50 блоков)', 400, 2024, 'x1_lighter', 'cigs', { brand: '' });
   x('Красная икра без маркировки (1 кг)', 260, 2024, 'x1_lighter', 'caviar', { brand: '' });
+  // wholesale boxes: a lot of forbidden goods in one box — expensive, and buyers snap them up (liquid: faster buyers)
+  const o = (name, price, kind, bulk, unit) => x(name, price, 2025, 'x1_lighter', 'opt_' + kind, { brand: '', bulk, unit, liquid: 1.8, tier: 'mid' });
+  o('Коробки немаркированных сигарет (500 блоков)', 3800, 'cigs', 500, ['блоков', 'блоків', 'cartons']);
+  o('Ящики немаркированного алкоголя (60 бутылок)', 1300, 'alco', 60, ['бутылок', 'пляшок', 'bottles']);
+  o('Партия поддельного парфюма (80 флаконов)', 2600, 'perfume', 80, ['флаконов', 'флаконів', 'bottles']);
+  o('Коробки вейпов без сертификата (300 шт)', 2200, 'vapes', 300, ['шт', 'шт', 'pcs']);
+  o('Партия глушилок связи (20 шт)', 3400, 'jammer', 20, ['шт', 'шт', 'pcs']);
+  o('Партия антирадаров с подавителем (25 шт)', 5200, 'radar', 25, ['шт', 'шт', 'pcs']);
+  o('Партия контрафактных кроссовок (40 пар)', 2800, 'sneakers', 40, ['пар', 'пар', 'pairs']);
+  o('Паллета пиротехники без сертификата (12 ящиков)', 1700, 'fireworks', 12, ['ящиков', 'ящиків', 'crates']);
+  o('Партия красной икры без маркировки (25 кг)', 5900, 'caviar', 25, ['кг', 'кг', 'kg']);
+  o('Партия «серых» смартфонов без пошлины (15 шт)', 6500, 'phones', 15, ['шт', 'шт', 'pcs']);
 }
 // photo prompts for scripts/gen_photos_fal.py (clean shots)
 export const BANNED_PROMPTS = {
@@ -28,4 +40,14 @@ export const BANNED_PROMPTS = {
   fireworks: 'a cardboard box full of fireworks rockets and firecrackers without labels, in a garage, amateur listing photo',
   cigs: 'a big cardboard box filled with cartons of cigarettes without excise stamps, in a garage, amateur listing photo',
   caviar: 'a one kilogram tin can of red salmon caviar without labels, opened, on a kitchen table, amateur listing photo',
+  opt_cigs: 'a stack of big brown cardboard boxes, the top one open and full of cigarette cartons without excise stamps, in a dim garage, amateur phone photo',
+  opt_alco: 'several cardboard crates of vodka and whisky bottles without excise stamps or labels, on a garage floor, amateur phone photo',
+  opt_perfume: 'an open cardboard box packed with dozens of identical perfume bottles in plain boxes, on a warehouse table, amateur phone photo',
+  opt_vapes: 'an open cardboard box filled with hundreds of colourful disposable vape pens in plastic packs, on a garage workbench, amateur phone photo',
+  opt_jammer: 'an open cardboard box with twenty identical black handheld signal jammers with antennas wrapped in bubble wrap, on a table, amateur phone photo',
+  opt_radar: 'an open cardboard box full of identical car radar detectors in retail boxes, in the trunk of a car, amateur phone photo',
+  opt_sneakers: 'a pile of cardboard boxes with counterfeit sneakers, the top box open with white sneakers inside, in a garage, amateur phone photo',
+  opt_fireworks: 'a pallet with a dozen cardboard crates of fireworks without labels, wrapped in stretch film, in a warehouse, amateur phone photo',
+  opt_caviar: 'an open styrofoam box with ice and many unlabeled tin cans of red caviar, on a garage table, amateur phone photo',
+  opt_phones: 'an open cardboard box with fifteen sealed smartphone retail boxes stacked inside, on a car seat, amateur phone photo',
 };

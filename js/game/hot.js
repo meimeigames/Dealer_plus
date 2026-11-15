@@ -167,7 +167,7 @@ const pct = (it, salt, lo, span) => +(lo + (hashId(it.id + salt) % (span * 1000 
 export function dealRisk(it) {
   const kind = shadeOf(it);
   if (!kind) return 0;
-  if (kind === 'banned') return saleRisk(it);
+  if (kind === 'banned') return it.olx === 'open' ? clamp(saleRisk(it) * 1.5 + 0.04, 0, 0.7) : saleRisk(it); // an open ad for forbidden goods draws attention
   const lo = pct(it, '|deal', 0.03, 0.02);
   if (kind === 'grey' || !markLeft(it).length) return lo;
   const x = clamp((traceOf(it) - HOT_FLOOR) / (95 - HOT_FLOOR), 0.05, 1);

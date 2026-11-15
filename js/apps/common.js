@@ -13,6 +13,7 @@ import { itemValue, itemTitle, isVehicle, knownDefects } from '../game/items.js'
 import { getItem, canStore, stat, upLevel } from '../game/player.js';
 import { LUXURY_CATS } from '../data/catalog.js';
 import { sfx } from '../ui/sfx.js';
+import { DISGUISES, boxInfo } from '../game/banned.js';
 import { useEnergy, hasEnergy } from '../game/needs.js';
 
 export const region = () => countryOf(G.s.player.city);
@@ -86,6 +87,16 @@ export async function sellFlow(itemId) {
     if (!d) return false;
     disclose = d === 'yes';
   }
+  // forbidden goods: openly (the moderators find it within hours) or disguised as something harmless
+  let mask = null;
+  if (it.banned) {
+    const how = await choose(T('Как выставить запрещёнку?', 'Як виставити заборонене?', 'How to list forbidden goods?'), [
+      ...DISGUISES.map((d, i) => ({ v: String(i), label: `🎭 ${T('Под видом', 'Під виглядом', 'Disguised as')}: ${L(d)}`, sub: T('модерация почти не замечает (3 %/ч), покупателей чуть меньше', 'модерація майже не помічає (3 %/год), покупців трохи менше', 'moderators rarely notice (3 %/h), slightly fewer buyers'), cls: 'dark' })),
+      { v: 'open', label: T('Открыто, как есть', 'Відкрито, як є', 'Openly, as it is'), sub: T('удалят за пару часов (30 %/ч) + предупреждение, на сделке риск выше', 'видалять за пару годин (30 %/год) + попередження, на угоді ризик вищий', 'removed within hours (30 %/h) + a strike, riskier deal'), cls: 'red' },
+    ], T('На Оликсе запрещённое удаляют. Замаскируйте объявление под безопасный товар — покупатели поймут из переписки.', 'На Оліксі заборонене видаляють. Замаскуйте оголошення під безпечний товар — покупці зрозуміють із листування.', 'Oliks removes forbidden goods. Disguise the ad as something harmless — buyers will get it from the chat.'));
+    if (!how) return false;
+    mask = how === 'open' ? null : DISGUISES[+how];
+  }
   // optional: shoot photos and write the text yourself — a good listing draws more buyers
   const how = await choose(T('Оформление объявления', 'Оформлення оголошення', 'Listing setup'), [
     { v: 'pro', label: T('📸 Сфотографировать и написать текст', '📸 Сфотографувати й написати текст', '📸 Take photos and write the text'), sub: T('больше просмотров', 'більше переглядів', 'more views'), cls: '' },
@@ -98,7 +109,7 @@ export async function sellFlow(itemId) {
     const r2 = r1.quit ? { score: 0 } : await playMini('compose', { title: T('Текст объявления', 'Текст оголошення', 'Listing text'), pass: 0.6, rounds: 1 });
     q = (r1.score || 0) * 0.65 + (r2.score || 0) * 0.35;
   }
-  listItem(itemId, p, price, disclose);
+  listItem(itemId, p, price, disclose, mask);
   const lst = G.s.listings.find((x) => x.itemId === itemId);
   if (lst) lst.photoQ = +q.toFixed(2);
   sfx('ok');
