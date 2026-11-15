@@ -70,7 +70,7 @@ export function bannedListing(rng, city) {
   it.fake = 0; it.docs = false; it.grey = true; it.defects = it.defects.filter((d) => d.known);
   makeBanned(it, rng);
   const clean = itemValue(it, city, 'true', { clean: true });
-  return { it, clean, price: nicePrice(Math.max(5, clean * rng.float(0.45, 0.68)), countryOf(city).cur) };
+  return { it, clean, price: nicePrice(Math.max(5, clean * rng.float(0.6, 0.74)), countryOf(city).cur) };
 }
 
 // a wholesale box of forbidden goods for the Shade feed: dearer, and resold quickly at a good price
@@ -80,7 +80,7 @@ export function bannedBoxListing(rng, city) {
   it.fake = 0; it.docs = false; it.grey = true; it.defects = [];
   makeBanned(it, rng);
   const clean = itemValue(it, city, 'true', { clean: true });
-  return { it, clean, price: nicePrice(Math.max(5, clean * rng.float(0.5, 0.64)), countryOf(city).cur) };
+  return { it, clean, price: nicePrice(Math.max(5, clean * rng.float(0.66, 0.78)), countryOf(city).cur) };
 }
 
 // ---------------------------------------------------------------- wiping traces
@@ -105,11 +105,11 @@ const bs = () => { const s = G.s; s.bsales ||= { open: [], after: [], log: [] };
 export const openSales = () => bs().open;
 export const saleLog = () => bs().log;
 export const afterSales = () => bs().after;
-// the Shade's own buyers: a fast drop, but they pay about 20–25 % over what you paid at most (no doubling your money)
+// the Shade's own buyers: a fast drop, about +15–20 % over what you paid on average (no doubling your money)
 export const offerFor = (it) => {
   const v = itemValue(it, G.s.player.city, 'true', { clean: true });
   let p = v * ((isBox(it) ? 0.88 : 0.85) - 0.25 * traceOfB(it) / 100);
-  if (it.paid > 0) p = Math.min(Math.max(it.paid * 1.22, v * 0.3), v * 0.95);
+  if (it.paid > 0) p = Math.min(Math.max(it.paid * 1.16, v * 0.3), v * 0.95);
   return nicePrice(p, countryOf(G.s.player.city).cur);
 };
 export function startSale(itemId) {

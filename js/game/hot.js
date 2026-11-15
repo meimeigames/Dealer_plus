@@ -269,12 +269,13 @@ export function darkOrders() {
   s.dord ||= { w: -1, list: [], done: {} };
   if (s.dord.w !== w) {
     const r = new RNG(`dord|${s.id}|${w}`);
-    s.dord = { w, done: s.dord.done || {}, list: Array.from({ length: 4 }, (_, i) => ({ id: `do${w}_${i}`, cat: r.pick(ORDER_CATS), k: +r.float(0.5, 0.72).toFixed(2), who: r.pick(BUYERS), until: (w + 1) * 240 })) };
+    s.dord = { w, done: s.dord.done || {}, list: Array.from({ length: 4 }, (_, i) => ({ id: `do${w}_${i}`, cat: r.pick(ORDER_CATS), k: +r.float(0.6, 0.8).toFixed(2), who: r.pick(BUYERS), until: (w + 1) * 240 })) };
   }
   return s.dord.list.filter((o) => !s.dord.done[o.id]);
 }
 // they know what they're buying: a hot item is priced with its traces
-export const orderPay = (o, it) => nicePrice(itemValue(it, G.s.player.city, 'true') * o.k, countryOf(G.s.player.city).cur);
+// Shade orders: priced from the clean value; for a thing bought in the Shade about +15–25 % on what you paid
+export const orderPay = (o, it) => { const v = itemValue(it, G.s.player.city, 'true', { clean: true }); let p = v * o.k; if (it.paid > 0) p = Math.min(Math.max(p, it.paid * 1.12), it.paid * 1.3); return nicePrice(p, countryOf(G.s.player.city).cur); };
 export function fillOrder(orderId, itemId) {
   const s = G.s, o = darkOrders().find((x) => x.id === orderId), it = getItem(itemId);
   if (!o || !it || it.cat !== o.cat || it.listed || it.banned) return { ok: false };

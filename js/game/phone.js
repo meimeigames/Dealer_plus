@@ -125,13 +125,16 @@ function darkFeed() {
     const it = makeItem(rng, { model: rng.pick(BY_CAT[cat]), quality: rng.chance(0.6) ? 'good' : 'any', fakeMult: 0, lockRate: kind === 'hot' ? 0.25 : 0.04 });
     it.box = kind === 'grey' && rng.chance(0.5); it.docs = false; it.grey = true; it.fake = 0;
     const clean = itemValue(it, city, 'true');
-    let k = 0.7;
-    if (kind === 'hot') { makeHot(it, rng, { known: true }); k = rng.float(0.25, 0.42); }
-    else if (kind === 'hidden') { makeHot(it, rng, { known: false }); k = rng.float(0.5, 0.65); }
-    else if (kind === 'replica') { it.fake = 2; it.fakeKnown = true; k = rng.float(0.1, 0.16); }
-    else k = rng.float(0.62, 0.8);
+    // Shade prices sit closer to the market than they used to: reselling (Telega, orders, a careful Oliks sale)
+    // earns a steady 15–20 %, not double or triple. The bottom of each range is where police stings hide.
+    const RANGE = { hot: [0.55, 0.68], hidden: [0.62, 0.74], replica: [0.1, 0.16], grey: [0.7, 0.84] };
+    const [lo, hi] = RANGE[kind] || RANGE.grey;
+    let k = rng.float(lo, hi);
+    if (kind === 'hot') makeHot(it, rng, { known: true });
+    else if (kind === 'hidden') makeHot(it, rng, { known: false });
+    else if (kind === 'replica') { it.fake = 2; it.fakeKnown = true; }
     // a deal that is too good may be a police test purchase — nothing on the listing gives it away
-    const cheap = clamp((0.5 - k) / 0.3, 0, 1), dear = clamp(Math.log10(Math.max(1, clean) / 150) / 1.6, 0, 1);
+    const mid = (lo + hi) / 2, cheap = clamp((mid - k) / (mid - lo), 0, 1), dear = clamp(Math.log10(Math.max(1, clean) / 150) / 1.6, 0, 1);
     const pSting = kind === 'replica' ? 0 : 0.02 + 0.2 * cheap * (0.4 + 0.6 * dear) + (it.cond >= 90 ? 0.05 : 0);
     s.dark.feed.push({ id: uid('dk'), item: it, kind: kind === 'hidden' ? 'grey' : kind, price: nicePrice(Math.max(5, clean * k), cur), seller: sellerFor(rng, kind === 'hidden' ? 'grey' : kind), sting: rng.chance(pSting), clean });
   }

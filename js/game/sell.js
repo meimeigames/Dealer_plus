@@ -102,7 +102,9 @@ export function sellTick() {
     const g = glutK(count.get(floodKey(l.city, it.m)) || 1, floodOf(l.city, it.m));
     // a city has only so many buyers for one category: past ~10 of your ads they share them
     g.rateK *= Math.min(1, Math.pow(10 / (perCat.get(`${l.city}|${it.cat}`) || 1), 0.9));
-    const val = buyerView(it, l, city) * g.valK * (pf.bonus || 1) * (1 + upLevel('photo') * 0.03) * (0.94 + (l.photoQ ?? 0.35) * 0.18);
+    // stolen (re‑stamped serials show) and forbidden goods: buyers sense something and pay noticeably less
+    const shadyK = it.hot ? 0.78 : it.banned ? 0.82 : 1;
+    const val = buyerView(it, l, city) * g.valK * (pf.bonus || 1) * (1 + upLevel('photo') * 0.03) * (0.94 + (l.photoQ ?? 0.35) * 0.18) * shadyK;
     const ratio = val / Math.max(0.01, l.price);
     const attract = clamp(Math.pow(ratio, 3.2), 0.02, 4);
     const rate = (1 / 95) * (MODEL[it.m]?.liquid || 1) * (l.mask ? 0.8 : 1) * g.rateK * demand(it.cat, city) * repFactor() * (1 + upLevel('clients') * 0.22) * attract * pf.rate * (l.city === city ? 1 : 0.8) * ((G.s.boostUntil || 0) > G.s.t ? 2 : 1);
