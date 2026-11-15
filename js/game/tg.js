@@ -19,9 +19,9 @@ import { npcName } from './npc.js';
 import { rt } from '../core/clock.js';
 
 export const CHANNELS = [
-  { id: 'garage', name: ['Тёмный гараж', 'Темний гараж', 'Dark Garage'], ic: '🚗', col: '#7f1d1d', fee: 55, members: 5, about: ['Машины и техника без вопросов. Только для своих.', 'Машини й техніка без питань. Лише для своїх.', 'Cars and tech, no questions asked. Members only.'], cats: ['phones', 'electronics', 'consoles', 'cars', 'watches'], price: [0.35, 0.6], stolen: 0.3, scam: 0.1, lock: 0.12, handle: ['@tihiy_garage', '@bez_voprosov', '@noch_shop'] },
-  { id: 'repair', name: ['Ремонт‑зона', 'Ремонт‑зона', 'Repair Zone'], ic: '🔧', col: '#1e3a8a', fee: 20, members: 3400, about: ['Телефоны после ремонта: дёшево, работают. Иногда не всё оригинальное.', 'Телефони після ремонту: дешево, працюють. Іноді не все оригінальне.', 'Phones after repair: cheap and working. Not always all original.'], cats: ['phones', 'electronics'], price: [0.5, 0.72], stolen: 0, scam: 0.03, hidden: 0.55, handle: ['@remont_zone', '@master_sergey', '@fixit_pro'] },
-  { id: 'flea', name: ['Барахолка {city}', 'Барахолка {city}', '{city} Flea'], ic: '🏷', col: '#166534', fee: 0, members: 12800, about: ['Отдаю за копейки, самовывоз.', 'Віддаю за копійки, самовивіз.', 'Going cheap, pick up only.'], cats: ['clothing', 'sneakers', 'toys', 'misc', 'storage', 'gear', 'accessories', 'comics'], price: [0.6, 0.85], stolen: 0, scam: 0.02, handle: ['@baraholka_chat', '@otdam_deshevo', '@pereezd_sale'] },
+  { id: 'garage', name: ['Тёмный гараж', 'Темний гараж', 'Dark Garage'], ic: '🚗', col: '#7f1d1d', fee: 55, members: 5, about: ['Машины и техника без вопросов. Только для своих.', 'Машини й техніка без питань. Лише для своїх.', 'Cars and tech, no questions asked. Members only.'], cats: ['phones', 'electronics', 'consoles', 'cars', 'watches'], price: [0.42, 0.65], stolen: 0.3, scam: 0.1, lock: 0.12, handle: ['@tihiy_garage', '@bez_voprosov', '@noch_shop'] },
+  { id: 'repair', name: ['Ремонт‑зона', 'Ремонт‑зона', 'Repair Zone'], ic: '🔧', col: '#1e3a8a', fee: 20, members: 3400, about: ['Телефоны после ремонта: дёшево, работают. Иногда не всё оригинальное.', 'Телефони після ремонту: дешево, працюють. Іноді не все оригінальне.', 'Phones after repair: cheap and working. Not always all original.'], cats: ['phones', 'electronics'], price: [0.58, 0.78], stolen: 0, scam: 0.03, hidden: 0.55, handle: ['@remont_zone', '@master_sergey', '@fixit_pro'] },
+  { id: 'flea', name: ['Барахолка {city}', 'Барахолка {city}', '{city} Flea'], ic: '🏷', col: '#166534', fee: 0, members: 12800, about: ['Отдаю за копейки, самовывоз.', 'Віддаю за копійки, самовивіз.', 'Going cheap, pick up only.'], cats: ['clothing', 'sneakers', 'toys', 'misc', 'storage', 'gear', 'accessories', 'comics'], price: [0.68, 0.88], stolen: 0, scam: 0.02, handle: ['@baraholka_chat', '@otdam_deshevo', '@pereezd_sale'] },
   { id: 'opt', name: ['Опт и Китай', 'Опт і Китай', 'Wholesale & China'], ic: '📦', col: '#9a3412', fee: 0, members: 41000, about: ['Новости поставщиков, партии из Шэньчжэня, курсы юаня.', 'Новини постачальників, партії з Шеньчжені, курси юаня.', 'Supplier news, Shenzhen lots, yuan rates.'], news: true },
 ];
 // kind (group: members talk, channel: only the admins post) and the admin who decides what may be posted and
@@ -210,7 +210,16 @@ export function eligibleFor(c) {
   if (acc === 'none') return [];
   return G.s.inv.filter((it) => !it.listed && !it.shop && (acc === 'shade' || (acc === 'banned' ? it.banned || it.hot : !it.banned && !it.hot && !it.fake)));
 }
-const fairPrice = (it) => nicePrice(itemValue(it, G.s.player.city, 'true', { clean: true }) * (isBox(it) ? 1 : it.banned || it.hot ? 0.9 : 0.95), countryOf(G.s.player.city).cur);
+// What a channel's buyers pay. Not the full market price: they want a discount for buying through a chat, and
+// even more for «hot» goods. And it is tied to what you paid: after the admin's 10–20 % cut you keep roughly
+// 15–20 % on top of your purchase price — a steady earner, not a money printer.
+const fairPrice = (it) => {
+  const v = itemValue(it, G.s.player.city, 'true', { clean: true });
+  let p = v * (isBox(it) ? 0.82 : it.banned ? 0.8 : it.hot ? 0.62 : 0.9);
+  // bought it yourself: priced from your purchase (≈ +38 % before the cut), never above what the item is worth
+  if (it.paid > 0) p = Math.min(Math.max(it.paid * 1.38, v * 0.3), v * 0.95);
+  return nicePrice(p, countryOf(G.s.player.city).cur);
+};
 export function proposeSale(chId, itemId) {
   const c = CHANNELS.find((x) => x.id === chId), a = adminOf(c), it = getItem(itemId);
   if (!c || !it) return null;

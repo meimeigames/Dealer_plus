@@ -105,7 +105,13 @@ const bs = () => { const s = G.s; s.bsales ||= { open: [], after: [], log: [] };
 export const openSales = () => bs().open;
 export const saleLog = () => bs().log;
 export const afterSales = () => bs().after;
-export const offerFor = (it) => nicePrice(itemValue(it, G.s.player.city, 'true', { clean: true }) * ((isBox(it) ? 0.95 : 0.88) - 0.25 * traceOfB(it) / 100), countryOf(G.s.player.city).cur);
+// the Shade's own buyers: a fast drop, but they pay about 20–25 % over what you paid at most (no doubling your money)
+export const offerFor = (it) => {
+  const v = itemValue(it, G.s.player.city, 'true', { clean: true });
+  let p = v * ((isBox(it) ? 0.88 : 0.85) - 0.25 * traceOfB(it) / 100);
+  if (it.paid > 0) p = Math.min(Math.max(it.paid * 1.22, v * 0.3), v * 0.95);
+  return nicePrice(p, countryOf(G.s.player.city).cur);
+};
 export function startSale(itemId) {
   const it = getItem(itemId);
   if (!it?.banned) return { ok: false };

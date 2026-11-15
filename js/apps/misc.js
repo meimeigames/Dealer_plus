@@ -11,7 +11,7 @@ import { CATS } from '../data/catalog.js';
 import { icon } from '../ui/icons.js';
 import { go, rerender, toast, confirmBox, choose, sheet, resolveSheet, ago, renderHome, refreshAll, UI, openApp } from '../ui/shell.js';
 import { empty, bar, kv, segbar, sparkline, avatar } from '../ui/comp.js';
-import { ensureDaily, questProgress, questText, claimQuest, STORY, ACH, achTier, achReward, claimAch, achBadge, QUEST_K } from '../game/quests.js';
+import { ensureDaily, questProgress, questText, claimQuest, STORY, ACH, achTier, achReward, claimAch, achBadge, QUEST_K, ACH_HOW, ACH_PAY } from '../game/quests.js';
 import { UPGRADES, upLevel, upCost, UP_MAX, spend, getStat, netWorth, repScore, addXP } from '../game/player.js';
 import { newsText } from '../game/news.js';
 import { liveBoard, LIVE } from '../game/online.js';
@@ -42,7 +42,7 @@ function questsMain() {
 // achievement tiles; shadow ones in the Shade's terminal look
 function achGrid(list, dark) {
   const n = list.filter((a) => achTier(a)).length;
-  return `<div class="small m mb">${T('Открыто', 'Відкрито', 'Unlocked')} ${n} / ${list.length} · ${T('каждая ступень платит один раз', 'кожен щабель платить один раз', 'each tier pays once')}: 🥉 🥈 🥇 💎</div><div class="tiles ${dark ? 'ach-dark' : ''}" style="grid-template-columns:1fr 1fr 1fr;gap:8px">${list.map((a) => { const t = achTier(a); return `<div class="stat center" style="${t ? '' : 'opacity:.5'}"><div style="font-size:24px">${['🔒', '🥉', '🥈', '🥇', '💎'][t]}</div><b style="font-size:13px;white-space:normal">${a.ic ? a.ic + ' ' : ''}${esc(L(a.n))}</b><small>${a.money ? fmt(getStat(a.stat), { short: true }) : Math.floor(getStat(a.stat))}${a.tiers[t] != null ? ' / ' + (a.money ? fmt(a.tiers[t], { short: true }) : a.tiers[t]) : ''}</small>${achReward(a) ? `<button class="btn xs mt" data-a="achclaim" data-v="${a.stat}">+${fmt(achReward(a), { short: true })}</button>` : ''}</div>`; }).join('')}</div>`;
+  return `<div class="small m mb">${T('Открыто', 'Відкрито', 'Unlocked')} ${n} / ${list.length} · ${T('каждая ступень платит один раз', 'кожен щабель платить один раз', 'each tier pays once')}: 🥉 🥈 🥇 💎</div><div class="tiles ${dark ? 'ach-dark' : ''}" style="grid-template-columns:1fr 1fr 1fr;gap:8px">${list.map((a) => { const t = achTier(a); return `<div class="stat center click" data-a="achinfo" data-v="${a.stat}" style="${t ? '' : 'opacity:.5'}"><div style="font-size:24px">${['🔒', '🥉', '🥈', '🥇', '💎'][t]}</div><b style="font-size:13px;white-space:normal">${a.ic ? a.ic + ' ' : ''}${esc(L(a.n))}</b><small>${a.money ? fmt(getStat(a.stat), { short: true }) : Math.floor(getStat(a.stat))}${a.tiers[t] != null ? ' / ' + (a.money ? fmt(a.tiers[t], { short: true }) : a.tiers[t]) : ''}</small>${achReward(a) ? `<button class="btn xs mt" data-a="achclaim" data-v="${a.stat}">+${fmt(achReward(a), { short: true })}</button>` : ''}</div>`; }).join('')}</div>`;
 }
 const QV = { tab: 'q' };
 export const questsApp = {
@@ -53,6 +53,14 @@ export const questsApp = {
   actions: {
     claim: (id) => { const q = G.s.quests.list.find((x) => x.id === id); if (claimQuest(q)) { sfx('cash'); toast(`+${fmt(q.reward)}`, 'g'); } rerender(); },
     qtab: (v) => { QV.tab = v; rerender(); },
+    // tap an achievement: how to get it, every tier with its reward
+    achinfo: (stat) => {
+      const a = ACH.find((x) => x.stat === stat); if (!a) return;
+      const t = achTier(a), v = getStat(a.stat), w = countryOf(G.s.player.city).wage;
+      const show = (x) => (a.money ? fmt(x, { short: true }) : Math.floor(x).toLocaleString('ru'));
+      const rows = a.tiers.map((x, i) => `<div class="kv"><span>${['🥉', '🥈', '🥇', '💎'][i]} ${show(x)}</span><b class="${t > i ? 'g' : 'm'}">${t > i ? '✓ ' : ''}+${fmt(ACH_PAY[i + 1] * w, { short: true })}</b></div>`).join('');
+      sheet(`<h2>${a.ic || ''} ${esc(L(a.n))}${a.shadow ? ' <span class="tag">🕶</span>' : ''}</h2><p class="p">${esc(L(ACH_HOW[a.stat] || ['', '', '']))}</p><div class="card"><div class="kv"><span>${T('Сейчас', 'Зараз', 'Now')}</span><b>${show(v)}${a.tiers[t] != null ? ` / ${show(a.tiers[t])}` : ' · 💎'}</b></div>${a.tiers[t] != null ? bar((v / a.tiers[t]) * 100) : ''}</div><div class="card">${rows}</div><p class="tiny m">${T('Каждая ступень платит один раз — забрать награду можно на плитке достижения.', 'Кожен щабель платить один раз — забрати нагороду можна на плитці досягнення.', 'Each tier pays once — collect it on the achievement tile.')}</p><button class="btn block" data-a="closeSheet">OK</button>`);
+    },
     achclaim: (stat) => { const a = ACH.find((x) => x.stat === stat); const got = a && claimAch(a); if (got) { sfx('cash'); toast(`+${fmt(got)}`, 'g'); } rerender(); },
   },
 };
