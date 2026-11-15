@@ -1748,3 +1748,8 @@ body.kb-open #homebar { display: none; }
 .tgx-avs button { font-size: 22px; border-radius: 10px; padding: 4px 0; } .tgx-avs button.on { background: rgba(94,181,247,.25); }
 .tgx-cols { display: flex; gap: 8px; padding: 8px 14px 14px; } .tgx-cols button { width: 30px; height: 30px; border-radius: 50%; } .tgx-cols button.on { outline: 2.5px solid var(--tg-tx); outline-offset: 2px; }
 .tgx-uname { display: flex; align-items: center; gap: 6px; } .tgx-uname span { font-size: 20px; font-weight: 700; color: #5eb5f7; } .tgx-uname .input { flex: 1; }
+/* Quests tabs + shadow achievements (only with a VPN) */
+.qbadge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--red, #ff5468); color: #fff; font-size: 11px; font-weight: 800; }
+.ach-dark .stat { background: #06120c; border: 1px solid #0f2a1e; color: #9fe8c6; }
+.ach-dark .stat small { color: #2ef2a0; }
+.ach-dark .btn { background: #2ef2a0; color: #03140c; }

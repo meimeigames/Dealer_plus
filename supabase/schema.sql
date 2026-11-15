@@ -604,3 +604,13 @@ grant execute on function public.gr_world() to anon;
 grant execute on function public.gr_tg_check(text, uuid) to anon;
 grant execute on function public.gr_tg_claim(uuid, text, text) to anon;
 grant execute on function public.gr_tg_release(uuid, text) to anon;
+
+-- ================================================================ v5: leaving the leaderboard (a fresh start removes your old record)
+create or replace function public.gr_leave(p_id uuid, p_secret text)
+returns json language plpgsql security definer set search_path = public, extensions as $$
+begin
+  if not gr_auth(p_id, p_secret) then raise exception 'auth'; end if;
+  delete from gr_players where id = p_id; -- friends, nudges, transfers and the Telega @username go with it (on delete cascade)
+  return json_build_object('ok', true);
+end $$;
+grant execute on function public.gr_leave(uuid, text) to anon;

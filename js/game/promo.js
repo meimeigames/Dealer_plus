@@ -9,9 +9,14 @@ import { earn, notify } from './player.js';
 const CODES = {
   штуцер: { amount: 30000, name: 'Штуцер' },
   серьожабосс: { amount: 500000, name: 'СерьожаБОСС' },
+  перекуп: { amount: 50000, name: 'Перекуп' },
+  олікскороль: { amount: 100000, name: 'ОліксКороль' },
+  алибао: { amount: 150000, name: 'АлиБао' },
+  теньзнает: { amount: 75000, name: 'ТеньЗнает', vpn: 7 }, // + VPN for 7 game days
+  миллионер: { amount: 1000000, name: 'Миллионер' },
 };
 // how the player may type it: any case, spaces, ё/е, the "серёжа"/"сережа" spellings
-const ALIAS = { серёжабосс: 'серьожабосс', сережабосс: 'серьожабосс', серьёжабосс: 'серьожабосс' };
+const ALIAS = { серёжабосс: 'серьожабосс', сережабосс: 'серьожабосс', серьёжабосс: 'серьожабосс', олікскороль: 'олікскороль', олидскороль: 'олікскороль', оликскороль: 'олікскороль', oliksking: 'олікскороль', алібао: 'алибао', alibao: 'алибао', perekup: 'перекуп', тень: 'теньзнает', теньзнаєт: 'теньзнает', мільйонер: 'миллионер', millioner: 'миллионер' };
 const norm = (code) => { const k = String(code || '').toLowerCase().replace(/[\s_\-.,!«»"']/g, ''); return ALIAS[k] || k; };
 
 export const usedPromos = () => (G.s.promos ||= []);
@@ -24,7 +29,8 @@ export function redeem(code) {
   const usd = fromLoc(c.amount, countryOf(G.s.player.city).cur);
   usedPromos().push(k);
   earn(usd, 'bonus', T(`Промокод «${c.name}»`, `Промокод «${c.name}»`, `Promo code “${c.name}”`));
+  if (c.vpn) { const s = G.s; s.vpn = { ...(s.vpn || {}), on: true, until: Math.max(s.vpn?.until || 0, s.t) + c.vpn * 1440 }; emit('apps'); }
   notify('bank', T('Промокод активирован', 'Промокод активовано', 'Promo code redeemed'), `«${c.name}»: +${fmt(usd)}`, { silent: true });
   emit('bank'); save();
-  return { ok: true, usd, name: c.name };
+  return { ok: true, usd, name: c.name, vpn: c.vpn || 0 };
 }

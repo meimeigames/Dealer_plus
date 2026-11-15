@@ -2,6 +2,7 @@
 // wallet (very rarely), cheating buyers, stolen goods, smuggling, leaking databases (much more often). Caught → a
 // fine, hours in the holding cell with the phone confiscated (a countdown), and a mark in your record that makes
 // paperwork harder and fines/late penalties bigger until it expires.
+import { rt } from '../core/clock.js';
 import { G, emit } from '../core/state.js';
 import { T, L, dur } from '../core/i18n.js';
 import { RNG } from '../core/rng.js';
@@ -49,12 +50,15 @@ export function arrest(kind, extra = {}) {
   const r = new RNG(`arrest|${s.id}|${kind}|${s.t}`);
   const wage = Math.max(0.5, countryOf(s.player.city).wage);
   const fine = Math.round(r.float(c.fine[0], c.fine[1]) * wage + (extra.fine || 0));
-  // extra.mins fixes the time in the cell (a sting is always the same 5 minutes)
-  const mins = extra.mins ?? Math.round(r.float(c.jail[0], c.jail[1]) * dv().jail * (1 + marksCount() * 0.3));
+  // extra.mins fixes the time in the cell. The numbers are «seconds of the original 1 s = 1 min clock», i.e. 180 =
+  // 3 real minutes; rt() turns real minutes into game minutes, so a cell lasts the same few real minutes at any
+  // clock speed (it used to grow 5× when the game day was slowed down to 2 hours)
+  const real = (extra.mins ?? r.float(c.jail[0], c.jail[1]) * dv().jail * (1 + marksCount() * 0.3)) / 60;
+  const mins = rt(real);
   charge(fine, 'fine', T(`Штраф: ${L(c.n).toLowerCase()}`, `Штраф: ${L(c.n).toLowerCase()}`, `Fine: ${L(c.n).toLowerCase()}`));
   const rec = recordState();
   rec.marks.push({ kind, t: s.t, until: s.t + RECORD_DAYS * 1440, text: extra.text || '' });
-  s.jail = { kind, until: s.t + mins, since: s.t, fine: Math.round(fine * recordMult()), bail: Math.round(fine * 1.5 + 30 * wage), text: extra.text || '' };
+  s.jail = { rt: 1, kind, until: s.t + mins, since: s.t, fine: Math.round(fine * recordMult()), bail: Math.round(fine * 1.5 + 30 * wage), text: extra.text || '' };
   stat('arrests');
   log('police', `${L(c.n)}: ${fmt(fine)}`);
   notify('gov', T('Задержание', 'Затримання', 'Arrested'), T(`${L(c.n)}. Штраф ${fmt(fine)}, телефон изъят на ${dur(mins)}. Пометка в личном деле.`, `${L(c.n)}. Штраф ${fmt(fine)}, телефон вилучено на ${dur(mins)}. Позначка в особовій справі.`, `${L(c.n)}. Fine ${fmt(fine)}, phone confiscated for ${dur(mins)}. A mark on your record.`), { noBadge: true });
@@ -81,6 +85,8 @@ export function payBail() {
 }
 export function jailTick() {
   const s = G.s;
+  // a cell given before the fix (in game minutes at a slow clock) is cut to a few real minutes
+  if (s.jail && !s.jail.rt) { s.jail.rt = 1; s.jail.until = Math.min(s.jail.until, s.t + rt(5)); emit('jail'); }
   if (s.jail && s.jail.until <= s.t) {
     s.jail = null;
     notify('gov', T('Отпустили', 'Відпустили', 'Released'), T('Телефон вернули. Постарайтесь больше не попадаться.', 'Телефон повернули. Постарайтеся більше не потрапляти.', 'You got your phone back. Try not to get caught again.'), { noBadge: true });

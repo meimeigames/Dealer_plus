@@ -102,6 +102,45 @@ export const ACH = [
   { stat: 'abroad', tiers: [1, 5, 25, 100], n: ['Путешественник', 'Мандрівник', 'Globetrotter'] },
   { stat: 'shopSales', tiers: [1, 50, 500, 5000], n: ['Ритейлер', 'Ритейлер', 'Retailer'] },
   { stat: 'rareFound', tiers: [1, 5, 25, 100], n: ['Охотник за редкостями', 'Мисливець за рідкостями', 'Rarity hunter'] },
+  { stat: 'bought', tiers: [1, 25, 250, 2500], n: ['Скупщик', 'Скупник', 'Buyer'], ic: '🛒' },
+  { stat: 'inspections', tiers: [1, 25, 150, 800], n: ['Зоркий глаз', 'Пильне око', 'Eagle eye'], ic: '🔍' },
+  { stat: 'disputesWon', tiers: [1, 5, 25, 100], n: ['Юрист', 'Юрист', 'Lawyer'], ic: '⚖️' },
+  { stat: 'taxPaid', tiers: [100, 10000, 1e6, 1e8], n: ['Честный налогоплательщик', 'Чесний платник податків', 'Honest taxpayer'], money: true, ic: '🧾' },
+  { stat: 'containersOpened', tiers: [1, 10, 50, 200], n: ['Контейнерщик', 'Контейнерник', 'Container king'], ic: '🚢' },
+  { stat: 'boxesOpened', tiers: [1, 10, 50, 200], n: ['Распаковщик опта', 'Розпаковувач опту', 'Box opener'], ic: '📦' },
+  { stat: 'pcBuilt', tiers: [1, 10, 50, 200], n: ['Сборщик ПК', 'Збирач ПК', 'PC builder'], ic: '🖥' },
+  { stat: 'jailbreaks', tiers: [1, 10, 50, 200], n: ['Хакер', 'Хакер', 'Hacker'], ic: '🔓' },
+  { stat: 'devicesOpened', tiers: [1, 25, 150, 600], n: ['Цифровой археолог', 'Цифровий археолог', 'Digital archaeologist'], ic: '💾' },
+  { stat: 'lootFound', tiers: [1, 10, 50, 200], n: ['Кладоискатель', 'Шукач скарбів', 'Treasure hunter'], ic: '💎' },
+  { stat: 'virusRemoved', tiers: [1, 10, 50, 200], n: ['Антивирус', 'Антивірус', 'Antivirus'], ic: '🛡' },
+  { stat: 'venuesOpened', tiers: [1, 2, 4, 6], n: ['Ресторатор', 'Ресторатор', 'Restaurateur'], ic: '🍽' },
+  { stat: 'homesBought', tiers: [1, 3, 10, 30], n: ['Девелопер', 'Девелопер', 'Developer'], ic: '🏠' },
+  { stat: 'renovations', tiers: [1, 5, 25, 100], n: ['Прораб', 'Виконроб', 'Foreman'], ic: '🧱' },
+  { stat: 'trips', tiers: [1, 10, 50, 200], n: ['Турист', 'Турист', 'Tourist'], ic: '✈️' },
+  { stat: 'auctionSold', tiers: [1, 20, 100, 500], n: ['Аукционист', 'Аукціоніст', 'Auctioneer'], ic: '🔨' },
+  { stat: 'casinoWin', tiers: [1, 25, 150, 800], n: ['Везунчик', 'Щасливчик', 'Lucky one'], ic: '🎰' },
+  { stat: 'numbersSold', tiers: [1, 10, 50, 200], n: ['Красивые номера', 'Гарні номери', 'Golden numbers'], ic: '📱' },
+  { stat: 'dumpster', tiers: [1, 25, 150, 600], n: ['Король помойки', 'Король смітника', 'Dumpster king'], ic: '🗑' },
+  { stat: 'wholesale', tiers: [1, 10, 50, 200], n: ['Оптовик', 'Оптовик', 'Wholesaler'], ic: '🏭' },
+  { stat: 'tgSold', tiers: [1, 10, 50, 200], n: ['Через админа', 'Через адміна', 'Via the admin'], ic: '✈️' },
+  { stat: 'vinChecks', tiers: [1, 10, 50, 200], n: ['Автоэксперт', 'Автоексперт', 'Car expert'], ic: '🚗' },
+  { stat: 'cleaned', tiers: [1, 25, 150, 600], n: ['Чистюля', 'Чистюля', 'Neat freak'], ic: '🧽' },
+  { stat: 'quests', tiers: [1, 25, 150, 600], n: ['Исполнитель', 'Виконавець', 'Go‑getter'], ic: '✅' },
+  // shadow achievements: only visible (and claimable) with a VPN on — Quests → «Shadow»
+  { stat: 'darkBuys', tiers: [1, 10, 50, 200], n: ['Клиент Тени', 'Клієнт Тіні', 'Shade customer'], ic: '🕶', shadow: true },
+  { stat: 'tracesWiped', tiers: [1, 15, 80, 300], n: ['Чистильщик следов', 'Чистильник слідів', 'Trace cleaner'], ic: '🧤', shadow: true },
+  { stat: 'bannedSold', tiers: [1, 10, 50, 200], n: ['Контрабандист', 'Контрабандист', 'Smuggler'], ic: '⛔', shadow: true },
+  { stat: 'fenced', tiers: [1, 10, 50, 200], n: ['Друг скупщика', 'Друг скупника', 'Fence’s friend'], ic: '🤝', shadow: true },
+  { stat: 'darkOrders', tiers: [1, 10, 50, 200], n: ['Под заказ', 'Під замовлення', 'Made to order'], ic: '📋', shadow: true },
+  { stat: 'shadowFound', tiers: [1, 2, 3, 4], n: ['Ссылки из тьмы', 'Посилання з темряви', 'Links from the dark'], ic: '🕳', shadow: true },
+  { stat: 'probes', tiers: [1, 10, 50, 200], n: ['Пробивщик', 'Пробивник', 'Background checker'], ic: '🔎', shadow: true },
+  { stat: 'tgPosted', tiers: [1, 10, 50, 200], n: ['Свой у админов', 'Свій в адмінів', 'Admins’ friend'], ic: '📣', shadow: true },
+  { stat: 'reflash', tiers: [1, 10, 50, 200], n: ['Перепрошивщик', 'Перепрошивальник', 'Reflasher'], ic: '📟', shadow: true },
+  { stat: 'arrests', tiers: [1, 5, 20, 50], n: ['Завсегдатай обезьянника', 'Завсідник мавпятника', 'Holding‑cell regular'], ic: '🚔', shadow: true },
+  { stat: 'stings', tiers: [1, 3, 10, 25], n: ['Попался на подставу', 'Попався на підставу', 'Fell for a sting'], ic: '🪤', shadow: true },
+  { stat: 'burned', tiers: [1, 3, 10, 25], n: ['Засветился', 'Засвітився', 'Got burned'], ic: '📡', shadow: true },
+  { stat: 'hotCaught', tiers: [1, 3, 10, 25], n: ['Под колпаком', 'Під ковпаком', 'Under watch'], ic: '👮', shadow: true },
+  { stat: 'shady', tiers: [1, 10, 50, 200], n: ['Серые схемы', 'Сірі схеми', 'Grey schemes'], ic: '🌫', shadow: true },
 ];
 export function achTier(a) { const v = getStat(a.stat); let t = 0; for (const x of a.tiers) if (v >= x) t++; return t; }
 // every achievement tier pays once: 🥉 $60 · 🥈 $500 · 🥇 $4 000 · 💎 $30 000 (× local wage level)
@@ -117,7 +156,8 @@ export function claimAch(a) {
   emit('quests');
   return got;
 }
-export const achBadge = () => ACH.filter((a) => achReward(a) > 0).length;
+// the badge counts shadow achievements only while a VPN is on (they can't be seen or claimed otherwise)
+export const achBadge = (shadowOk = false) => ACH.filter((a) => (!a.shadow || shadowOk) && achReward(a) > 0).length;
 
 // ---------------------------------------------------------------- collections
 const rx = (r) => (m) => r.test(m.id);

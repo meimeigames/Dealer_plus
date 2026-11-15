@@ -19,28 +19,40 @@ import { wifiPicker, burnCard } from './shadow_apps.js';
 import { currentNet } from '../game/shadow.js';
 import { pAvatar, titleChip, publicProfile } from '../game/profile.js';
 import { playerView, playerActions } from './players.js';
-import { worldStats } from '../game/online.js';
+import { worldStats, leaveOnline } from '../game/online.js';
 import { onlineEnabled, isRegistered, register, offlineBoard, friendRequest, friendRespond, nudge, errText, submit, serverSource, serverUrl, setServer, clearServer, inviteLink, ping, HOME, homeData, sync } from '../game/online.js';
 import { sfx } from '../ui/sfx.js';
 import { SPEEDS, speed, syncClock } from '../core/clock.js';
+import { vpnActive } from '../game/phone.js';
 
 // ---------------------------------------------------------------- QUESTS
 function questsMain() {
   const s = G.s;
   const list = ensureDaily();
   const st = STORY[s.quests.story];
-  return `<h2 class="sec">${T('Ежедневные', 'Щоденні', 'Daily')}</h2>` + list.map((q) => { const p = questProgress(q); const done = p >= q.target; return `<div class="card ${q.done ? 'hl' : ''}"><div class="row between"><b>${esc(questText(q))}</b><span class="small g">+${fmt(q.reward)} · ${q.xp} XP</span></div>${bar((Math.min(p, q.target) / q.target) * 100)}<div class="row between mt"><span class="small m">${q.money ? fmt(p) : p} / ${q.money ? fmt(q.target) : q.target}</span>${q.done ? `<span class="tag g">✓</span>` : done ? `<button class="btn xs green" data-a="claim" data-v="${q.id}">${T('Забрать', 'Забрати', 'Claim')}</button>` : ''}</div></div>`; }).join('') +
+  const shadowOk = vpnActive();
+  if (QV.tab === 'shadow' && !shadowOk) QV.tab = 'ach';
+  const seg = `<div class="seg">${[['q', T('Задания', 'Завдання', 'Quests')], ['ach', T('Достижения', 'Досягнення', 'Achievements')], ...(shadowOk ? [['shadow', '🕶 ' + T('Теневые', 'Тіньові', 'Shadow')]] : [])].map(([k, n]) => { const b = k === 'ach' ? achBadge(false) : k === 'shadow' ? ACH.filter((a) => a.shadow && achReward(a) > 0).length : 0; return `<button class="${QV.tab === k ? 'on' : ''}" data-a="qtab" data-v="${k}">${n}${b ? ` <span class="qbadge">${b}</span>` : ''}</button>`; }).join('')}</div>`;
+  if (QV.tab === 'ach') return seg + achGrid(ACH.filter((a) => !a.shadow), false);
+  if (QV.tab === 'shadow') return seg + `<div class="termbox mb"><span class="hl">&gt; tor://achievements</span><br>${T('Теневые достижения видны только через VPN. Без VPN этой вкладки нет.', 'Тіньові досягнення видно лише через VPN. Без VPN цієї вкладки немає.', 'Shadow achievements only show through a VPN. Without it this tab is gone.')}</div>` + achGrid(ACH.filter((a) => a.shadow), true);
+  return seg + `<h2 class="sec">${T('Ежедневные', 'Щоденні', 'Daily')}</h2>` + list.map((q) => { const p = questProgress(q); const done = p >= q.target; return `<div class="card ${q.done ? 'hl' : ''}"><div class="row between"><b>${esc(questText(q))}</b><span class="small g">+${fmt(q.reward)} · ${q.xp} XP</span></div>${bar((Math.min(p, q.target) / q.target) * 100)}<div class="row between mt"><span class="small m">${q.money ? fmt(p) : p} / ${q.money ? fmt(q.target) : q.target}</span>${q.done ? `<span class="tag g">✓</span>` : done ? `<button class="btn xs green" data-a="claim" data-v="${q.id}">${T('Забрать', 'Забрати', 'Claim')}</button>` : ''}</div></div>`; }).join('') +
     `<h2 class="sec">${T('Путь к империи', 'Шлях до імперії', 'Road to an empire')} <span class="small m">${s.quests.story}/${STORY.length}</span></h2>` +
-    STORY.map((x, i) => `<div class="card ${i < s.quests.story ? 'hl' : i === s.quests.story ? '' : ''}" style="${i > s.quests.story ? 'opacity:.45' : ''}"><div class="row"><div style="width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;background:${i < s.quests.story ? 'var(--acc)' : 'var(--panel3)'};color:${i < s.quests.story ? '#04170e' : 'var(--text)'};font-weight:800">${i < s.quests.story ? '✓' : i + 1}</div><div class="grow"><b>${esc(L(x.n))}</b>${i === s.quests.story ? `<div class="d">${esc(L(x.d))}</div>` : ''}</div><span class="small m">+${fmt(x.r * QUEST_K * countryOf(s.player.city).wage)}</span></div></div>`).join('') +
-    `<h2 class="sec">${T('Достижения', 'Досягнення', 'Achievements')}</h2><div class="tiles" style="grid-template-columns:1fr 1fr 1fr;gap:8px">${ACH.map((a) => { const t = achTier(a); return `<div class="stat center" style="${t ? '' : 'opacity:.5'}"><div style="font-size:24px">${['🔒', '🥉', '🥈', '🥇', '💎'][t]}</div><b style="font-size:13px;white-space:normal">${esc(L(a.n))}</b><small>${a.money ? fmt(getStat(a.stat), { short: true }) : Math.floor(getStat(a.stat))}${a.tiers[t] != null ? ' / ' + (a.money ? fmt(a.tiers[t], { short: true }) : a.tiers[t]) : ''}</small>${achReward(a) ? `<button class="btn xs mt" data-a="achclaim" data-v="${a.stat}">+${fmt(achReward(a), { short: true })}</button>` : ''}</div>`; }).join('')}</div>`;
+    STORY.map((x, i) => `<div class="card ${i < s.quests.story ? 'hl' : i === s.quests.story ? '' : ''}" style="${i > s.quests.story ? 'opacity:.45' : ''}"><div class="row"><div style="width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;background:${i < s.quests.story ? 'var(--acc)' : 'var(--panel3)'};color:${i < s.quests.story ? '#04170e' : 'var(--text)'};font-weight:800">${i < s.quests.story ? '✓' : i + 1}</div><div class="grow"><b>${esc(L(x.n))}</b>${i === s.quests.story ? `<div class="d">${esc(L(x.d))}</div>` : ''}</div><span class="small m">+${fmt(x.r * QUEST_K * countryOf(s.player.city).wage)}</span></div></div>`).join('');
 }
+// achievement tiles; shadow ones in the Shade's terminal look
+function achGrid(list, dark) {
+  const n = list.filter((a) => achTier(a)).length;
+  return `<div class="small m mb">${T('Открыто', 'Відкрито', 'Unlocked')} ${n} / ${list.length} · ${T('каждая ступень платит один раз', 'кожен щабель платить один раз', 'each tier pays once')}: 🥉 🥈 🥇 💎</div><div class="tiles ${dark ? 'ach-dark' : ''}" style="grid-template-columns:1fr 1fr 1fr;gap:8px">${list.map((a) => { const t = achTier(a); return `<div class="stat center" style="${t ? '' : 'opacity:.5'}"><div style="font-size:24px">${['🔒', '🥉', '🥈', '🥇', '💎'][t]}</div><b style="font-size:13px;white-space:normal">${a.ic ? a.ic + ' ' : ''}${esc(L(a.n))}</b><small>${a.money ? fmt(getStat(a.stat), { short: true }) : Math.floor(getStat(a.stat))}${a.tiers[t] != null ? ' / ' + (a.money ? fmt(a.tiers[t], { short: true }) : a.tiers[t]) : ''}</small>${achReward(a) ? `<button class="btn xs mt" data-a="achclaim" data-v="${a.stat}">+${fmt(achReward(a), { short: true })}</button>` : ''}</div>`; }).join('')}</div>`;
+}
+const QV = { tab: 'q' };
 export const questsApp = {
   id: 'quests', glyph: 'trophy', lvl: 1,
   name: ['Задания', 'Завдання', 'Quests'], colors: ['#ffc23d', '#e09400'], glyphColor: '#fff',
-  badge: () => ensureDaily().filter((q) => !q.done && questProgress(q) >= q.target).length + achBadge(),
+  badge: () => ensureDaily().filter((q) => !q.done && questProgress(q) >= q.target).length + achBadge(vpnActive()),
   views: { main: questsMain },
   actions: {
     claim: (id) => { const q = G.s.quests.list.find((x) => x.id === id); if (claimQuest(q)) { sfx('cash'); toast(`+${fmt(q.reward)}`, 'g'); } rerender(); },
+    qtab: (v) => { QV.tab = v; rerender(); },
     achclaim: (stat) => { const a = ACH.find((x) => x.stat === stat); const got = a && claimAch(a); if (got) { sfx('cash'); toast(`+${fmt(got)}`, 'g'); } rerender(); },
   },
 };
@@ -214,7 +226,7 @@ export const settingsApp = {
     promo: () => {
       const inp = document.querySelector('#promo-in');
       const r = redeem(inp?.value);
-      if (r.ok) { sfx('win'); toast(T(`Промокод «${r.name}»: +${fmt(r.usd)}`, `Промокод «${r.name}»: +${fmt(r.usd)}`, `Code “${r.name}”: +${fmt(r.usd)}`), 'g'); if (inp) inp.value = ''; } else { sfx('err'); toast(r.msg, 'r'); }
+      if (r.ok) { sfx('win'); toast(T(`Промокод «${r.name}»: +${fmt(r.usd)}${r.vpn ? ` и VPN на ${r.vpn} дн.` : ''}`, `Промокод «${r.name}»: +${fmt(r.usd)}${r.vpn ? ` і VPN на ${r.vpn} дн.` : ''}`, `Code “${r.name}”: +${fmt(r.usd)}${r.vpn ? ` and VPN for ${r.vpn} days` : ''}`), 'g'); if (inp) inp.value = ''; } else { sfx('err'); toast(r.msg, 'r'); }
       rerender();
     },
     speed: (v) => { G.s.settings.speed = +v; syncClock(dv().fast ? 1.25 : 1); save(); toast(`⏱ ${T('Игровой день', 'Ігровий день', 'A game day')} = ${L(SPEEDS.find((x) => x.v === +v).n)}`, 'g'); rerender(); },
@@ -222,6 +234,6 @@ export const settingsApp = {
     rename: async () => { const v = await sheet(`<h2>${T('Имя', 'Імʼя', 'Name')}</h2><input class="input" id="nn" maxlength="20" value="${esc(G.s.player.name)}"><button class="btn block mt" id="nnok">OK</button>`, { after(el) { el.querySelector('#nnok').onclick = () => resolveSheet(el.querySelector('#nn').value.trim()); } }); if (v) { G.s.player.name = v; rerender(); } },
     export: async () => { const code = exportSave(); try { await navigator.clipboard.writeText(code); toast(T('Скопировано в буфер', 'Скопійовано в буфер', 'Copied to clipboard'), 'g'); } catch { await sheet(`<h2>${T('Код сохранения', 'Код збереження', 'Save code')}</h2><textarea class="input" style="height:200px">${esc(code)}</textarea>`); } },
     import: async () => { const v = await sheet(`<h2>${T('Вставьте код', 'Вставте код', 'Paste code')}</h2><textarea class="input" id="imp" style="height:180px"></textarea><button class="btn block mt" id="impok">${T('Загрузить', 'Завантажити', 'Load')}</button>`, { after(el) { el.querySelector('#impok').onclick = () => resolveSheet(el.querySelector('#imp').value); } }); if (!v) return; try { importSave(v); location.reload(); } catch { toast(T('Неверный код', 'Невірний код', 'Invalid code'), 'r'); } },
-    reset: async () => { if (await confirmBox(T('Удалить прогресс?', 'Видалити прогрес?', 'Delete progress?'), T('Это нельзя отменить.', 'Це не можна скасувати.', 'This can’t be undone.'), T('Удалить', 'Видалити', 'Delete'), undefined, true)) { wipe(); location.reload(); } },
+    reset: async () => { if (await confirmBox(T('Удалить прогресс?', 'Видалити прогрес?', 'Delete progress?'), T('Это нельзя отменить. Ваш ник уйдёт из онлайн‑рейтинга.', 'Це не можна скасувати. Ваш нік зникне з онлайн‑рейтингу.', 'This can’t be undone. Your nick leaves the online leaderboard.'), T('Удалить', 'Видалити', 'Delete'), undefined, true)) { await leaveOnline(); wipe(); location.reload(); } },
   },
 };

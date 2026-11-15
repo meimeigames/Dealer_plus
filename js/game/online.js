@@ -67,9 +67,24 @@ async function rpc(fn, body) {
   try { data = text ? JSON.parse(text) : null; } catch { data = text; }
   if (!r.ok) {
     const msg = (data && (data.message || data.hint)) || text || r.statusText;
+    // the server doesn't know this player any more (the board was cleared or the record was removed):
+    // forget the old login so the Leaderboard offers to join again instead of failing silently
+    if (body?.p_secret && G.s?.online?.id && body.p_id === G.s.online.id && /^auth$/i.test(String(msg).trim())) forgetOnline();
     throw new Error(msg);
   }
   return data;
+}
+export function forgetOnline() {
+  const o = G.s?.online; if (!o) return;
+  G.s.online = { ...o, id: null, secret: null, code: null, seq: 0, last: 0 };
+  if (G.s.tg?.me) G.s.tg.me.claimed = false;
+  save(); emit('online');
+}
+// a fresh start: the old record leaves the leaderboard (its nick becomes free again)
+export async function leaveOnline() {
+  const o = G.s?.online;
+  if (!onlineEnabled() || !o?.id) return false;
+  try { await Promise.race([rpc('gr_leave', { p_id: o.id, p_secret: o.secret }), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))]); return true; } catch { return false; }
 }
 export function errText(e) {
   const m = String(e?.message || e);
