@@ -166,6 +166,7 @@ export function shopTraffic(shop) {
 export function bizHourly() {
   const s = G.s;
   const hour = Math.floor((s.t % 1440) / 60);
+  if (!['ip', 'company'].includes(s.tax.regime)) return; // shops trade only while you are registered as a business
   for (const shop of s.biz.shops) {
     if (!shop.open) continue;
     const staffed = hasRole(shop, 'seller') || s.player.city === shop.city;

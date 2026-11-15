@@ -134,10 +134,12 @@ export const REGIMES = {
 };
 export const taxRate = () => { const r = REGIMES[G.s.tax.regime]; return r.rate * Math.max(0.06, countryOf(G.s.player.city).tax); };
 export const taxBase = () => REGIMES[G.s.tax.regime].base * countryOf(G.s.player.city).wage;
+// income taxed under the current regime today (after a switch only what was earned since then)
+export const taxable = () => { const t = G.s.tax; return Math.max(0, t.income - (t.from || 0)); };
 export function taxDue() {
   const t = G.s.tax;
   if (t.regime === 'none') return 0;
-  return Math.max(0, taxBase() + t.income * taxRate() - t.paid);
+  return Math.max(0, taxBase() + taxable() * taxRate() - t.paid);
 }
 export function payTax() {
   const s = G.s;
@@ -149,16 +151,22 @@ export function payTax() {
   emit('tax');
   return true;
 }
+// any regime, any time, up or down. Registering costs the state fee (+25 % per mark on your record);
+// deregistering is free. Today's tax under the old regime is settled first (paid now, or it becomes debt).
+export const regFee = (regime) => (regime === 'none' ? 0 : REGIMES[regime].reg * countryOf(G.s.player.city).wage * (1 + marksCount() * 0.25));
+export const bizNeedsRegime = (regime) => !['ip', 'company'].includes(regime) && ((G.s.biz?.shops || []).length > 0 || (G.s.venues || []).length > 0);
 export function register(regime) {
-  const s = G.s;
-  const r = REGIMES[regime];
-  const fee = r.reg * countryOf(s.player.city).wage * (1 + marksCount() * 0.25);
-  if (marksCount() >= 2) return false;
-  if (!spend(fee, 'gov', L(r.n))) return false;
-  s.tax.regime = regime;
-  addXP(20);
-  emit('tax');
-  return true;
+  const s = G.s, t = s.tax, r = REGIMES[regime];
+  if (!r || t.regime === regime) return { ok: false };
+  const fee = regFee(regime);
+  if (fee > 0 && !spend(fee, 'gov', L(r.n))) return { ok: false, msg: 'money' };
+  const due = taxDue();
+  let settled = 0, toDebt = 0;
+  if (due > 0) { if (s.money >= due) { spend(due, 'tax', T('Налог при смене режима', 'Податок під час зміни режиму', 'Tax on changing regime')); settled = due; stat('taxPaid', due); } else { t.debt += due; toDebt = due; } }
+  t.regime = regime; t.paid = 0; t.from = t.income;
+  if (regime !== 'none') addXP(20);
+  emit('tax'); emit('biz');
+  return { ok: true, fee, settled, toDebt };
 }
 
 // ---------------------------------------------------------------- tax reminders (Госуслуги / Дія pings you)
@@ -184,7 +192,7 @@ export function taxRemindTick() {
     return;
   }
   const lim = 250 * countryOf(s.player.city).wage;
-  if (m === 12 * 60 && t.income > lim * 0.5) notify('gov', T('Налоговая может заинтересоваться', 'Податкова може зацікавитися', 'The tax office may take an interest'), T(`Вы заработали ${fmt(t.income)} без регистрации. При больших доходах бывают проверки и штраф 20%. Самозанятость оформляется за пару минут.`, `Ви заробили ${fmt(t.income)} без реєстрації. За великих доходів бувають перевірки і штраф 20%. ФОП оформлюється за пару хвилин.`, `You’ve earned ${fmt(t.income)} unregistered. Big earnings bring audits and a 20% fine. Registering takes a couple of minutes.`), go);
+  if (m === 12 * 60 && taxable() > lim * 0.5) notify('gov', T('Налоговая может заинтересоваться', 'Податкова може зацікавитися', 'The tax office may take an interest'), T(`Вы заработали ${fmt(t.income)} без регистрации. При больших доходах бывают проверки и штраф 20%. Самозанятость оформляется за пару минут.`, `Ви заробили ${fmt(t.income)} без реєстрації. За великих доходів бувають перевірки і штраф 20%. ФОП оформлюється за пару хвилин.`, `You’ve earned ${fmt(t.income)} unregistered. Big earnings bring audits and a 20% fine. Registering takes a couple of minutes.`), go);
 }
 
 // ---------------------------------------------------------------- daily rollover (called by sim at midnight)
@@ -198,8 +206,8 @@ export function dailyLife(prevDay) {
       if (s.settings.autoTax && s.money >= due) { payTax(); out.push(T(`Налог списан: ${fmt(due)}`, `Податок списано: ${fmt(due)}`, `Tax auto‑paid: ${fmt(due)}`)); }
       else { s.tax.debt += due * (1 + 0.1 * recordMult()); s.tax.daysLate++; s.bank.credit = clamp(s.bank.credit - 15, 300, 850); notify('gov', T('Налоговый долг', 'Податковий борг', 'Tax debt'), `${fmt(s.tax.debt)}`); }
     }
-  } else if (s.tax.income > 250 * countryOf(s.player.city).wage && chance(0.22)) {
-    const fine = s.tax.income * 0.2;
+  } else if (taxable() > 250 * countryOf(s.player.city).wage && chance(0.22)) {
+    const fine = taxable() * 0.2;
     s.tax.debt += fine;
     notify('gov', T('Проверка налоговой', 'Перевірка податкової', 'Tax audit'), T(`Незаконная предпринимательская деятельность. Штраф ${fmt(fine)}`, `Незаконна підприємницька діяльність. Штраф ${fmt(fine)}`, `Unregistered trading. Fine ${fmt(fine)}`));
   }
@@ -209,7 +217,7 @@ export function dailyLife(prevDay) {
     s.tax.debt -= take;
   }
   s.tax.lastIncome = s.tax.income;
-  s.tax.income = 0; s.tax.paid = 0; s.tax.day = day();
+  s.tax.income = 0; s.tax.paid = 0; s.tax.from = 0; s.tax.day = day();
   // rent is paid up front by the day / week / month (game/housing.js)
   s.daily = {};
   snapshotWorth();

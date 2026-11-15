@@ -135,6 +135,7 @@ export function whyNot(v, it) {
 const isOpenHour = (def, h) => (def.open[0] < def.open[1] ? h >= def.open[0] && h < def.open[1] : h >= def.open[0] || h < def.open[1] % 24);
 export function problems(v) {
   const s = G.s, def = VENUES[v.type], out = [];
+  if (!canOpenVenue()) out.push({ k: 'regime', sev: 2 });
   if (v.permitAt > s.t) out.push({ k: 'permit', sev: 2 });
   for (const id of def.need) if (!hasEq(v, id)) out.push({ k: 'need', id, sev: 2 });
   if (v.closedUntil > s.t) out.push({ k: 'closed', sev: 2 });
@@ -149,7 +150,7 @@ export function problems(v) {
   const fire = fireGaps(v); if (fire.length) out.push({ k: 'fire', n: fire.length, sev: 1 });
   return out;
 }
-export const operating = (v) => { const s = G.s; return v.open && v.permitAt <= s.t && v.closedUntil <= s.t && VENUES[v.type].need.every((id) => hasEq(v, id)); };
+export const operating = (v) => { const s = G.s; return canOpenVenue() && v.open && v.permitAt <= s.t && v.closedUntil <= s.t && VENUES[v.type].need.every((id) => hasEq(v, id)); };
 export function fireGaps(v) {
   const def = VENUES[v.type], s = G.s, gaps = [];
   const ext = v.eq.filter((e) => e.id === 'extinguisher' && e.exp > s.t).length;

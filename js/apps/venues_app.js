@@ -19,6 +19,7 @@ const VS = { tab: 'over' };
 const dleft = (t) => { const m = t - G.s.t; return m <= 0 ? T('просрочено', 'прострочено', 'overdue') : m < DAY ? T(`${Math.ceil(m / 60)} ч`, `${Math.ceil(m / 60)} год`, `${Math.ceil(m / 60)} h`) : T(`${Math.round(m / DAY)} дн`, `${Math.round(m / DAY)} дн`, `${Math.round(m / DAY)} d`); };
 const stars = (r) => `★ ${r.toFixed(1)}`;
 const probText = (p) => ({
+  regime: T('Не работает: нужен ИП / ФОП 3 группы или компания (Госуслуги)', 'Не працює: потрібен ФОП 3 групи або компанія (Держпослуги)', 'Closed: needs self‑employed (business) or a company (Gov app)'),
   permit: T('Разрешение оформляется', 'Дозвіл оформлюється', 'Permit pending'), need: `${T('Нет для работы', 'Немає для роботи', 'Missing to open')}: ${esc(L(EQUIP[p.id]?.n || ['', '', '']))}`,
   closed: T('Закрыто по решению инспекции', 'Зачинено за рішенням інспекції', 'Closed by inspectors'), staff: T('Нет персонала — работает только когда вы в городе', 'Немає персоналу — працює лише коли ви в місті', 'No staff — runs only while you are in town'),
   broken: `💥 ${T('Сломано', 'Зламано', 'Broken')}: ${esc(L(EQUIP[p.e?.id]?.n || ['', '', '']))}`, svc: `🛠 ${T('Пора обслужить', 'Час обслугувати', 'Service due')}: ${esc(L(EQUIP[p.e?.id]?.n || ['', '', '']))}`,
