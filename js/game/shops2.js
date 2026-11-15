@@ -4,6 +4,7 @@
 // Lots come in sizes from 5 to 200 phones: the bigger the lot, the cheaper each phone, but the more can go
 // wrong — rarely: a short count, mixed-up models, opened returns, 1:1 clones, Chinese firmware, a customs
 // hold, a crushed box in the cargo. Clones get seized by customs with a fine.
+import { rt } from '../core/clock.js';
 import { G, emit } from '../core/state.js';
 import { T, L } from '../core/i18n.js';
 import { RNG } from '../core/rng.js';
@@ -171,7 +172,7 @@ export function lots() {
 // drop (rarity tiers with chances and example models) — never what is actually inside. Order it for yuan
 // (no trip needed), it comes by express cargo with customs included, you open it and see what fell out and
 // how many. Four new boxes every 5 minutes; an "anything" box can hold literally any phone in the game.
-export const BOX_WIN = 300;
+export const BOX_WIN = () => rt(5); // new boxes every 5 real minutes
 export const BOX_DELIVERY = 720; // 12 game hours
 export const BOX_THEMES = {
   all: { n: ['Всё подряд', 'Усе підряд', 'Anything goes'], e: '🎲', f: () => true },
@@ -189,8 +190,8 @@ export const BOX_TIERS = [
   { k: 'top', n: ['Топовые', 'Топові', 'Top'], p: 0.09, col: '#b46bff', lo: 0.85, hi: 0.97 },
   { k: 'jack', n: ['Джекпот', 'Джекпот', 'Jackpot'], p: 0.02, col: '#ffb800', lo: 0.97, hi: 1 },
 ];
-export const boxWindow = () => Math.floor(G.s.t / BOX_WIN);
-export const boxRefreshAt = () => (boxWindow() + 1) * BOX_WIN;
+export const boxWindow = () => Math.floor(G.s.t / BOX_WIN());
+export const boxRefreshAt = () => (boxWindow() + 1) * BOX_WIN();
 const boxUsed = (m) => m.year < 2019; // nobody has sealed boxes of old phones: those come used
 function boxItem(rng, m) {
   const used = boxUsed(m);
@@ -231,7 +232,7 @@ function boxOf(win, i) {
   const [a, b] = BOX_SIZES[size].n;
   // the trader's markup varies: some boxes are a better deal than others, nobody tells you which
   const price = Math.max(100, Math.round(((a + b) / 2) * evUnit * r.float(0.82, 0.97) * cnyRate() / 100) * 100);
-  const box = { id, win, i, theme, brand, size, nMin: a, nMax: b, price, tiers, seller: r.pick(SUPPLIERS), until: (win + 1) * BOX_WIN };
+  const box = { id, win, i, theme, brand, size, nMin: a, nMax: b, price, tiers, seller: r.pick(SUPPLIERS), until: (win + 1) * BOX_WIN() };
   boxCache.set(key, box);
   if (boxCache.size > 40) boxCache.delete(boxCache.keys().next().value);
   return box;
@@ -421,7 +422,7 @@ export function supTick() {
     notify('ymarket', T('Опт‑бокс доставлен', 'Опт‑бокс доставлено', 'Wholesale box delivered'), T(`${boxTitle(o)} — откройте и посмотрите, что выпало!`, `${boxTitle(o)} — відкрийте й подивіться, що випало!`, `${boxTitle(o)} — open it and see what you got!`), { go: ['ymarket', 'obox', { id: o.id }] });
     emit('sup');
   }
-  if (s.t % BOX_WIN === 0) {
+  if (s.t % BOX_WIN() === 0) {
     const day = Math.floor(s.t / 1440);
     for (const id of Object.keys(st.deals)) {
       const m = /^(lot|mix)_(\d+)_/.exec(id); if (!m) continue;

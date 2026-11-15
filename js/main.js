@@ -17,6 +17,7 @@ import { initHome } from './ui/home.js';
 import { initKeyboard } from './ui/keyboard.js';
 import { initGalleries } from './ui/comp.js';
 import { initWorld, startSim, isPaused, advance, catchUp, CATCHUP_MAX } from './game/sim.js';
+import { syncClock } from './core/clock.js';
 import { resolveCustoms } from './game/travel.js';
 import { log, earn, charge, addXP, addReview, addItem, canStore, spend, stat } from './game/player.js';
 import { eventsTick } from './game/events.js';
@@ -54,6 +55,34 @@ function safeRerender(ev) {
   rerender();
 }
 let homeTick = 0;
+// ---------------------------------------------------------------- updates for the installed app
+// A home‑screen app on iPhone can stay in memory for days with the old code. When you come back to it (and every
+// few minutes) it checks the deployed build; if there is a newer one it saves and restarts — but never in the
+// middle of a mini‑game, a sheet or typing.
+let updWaiting = false;
+async function checkUpdate() {
+  const cur = window.GR_CONFIG?.build;
+  if (!cur || cur === 'dev' || !navigator.onLine) return;
+  try {
+    const tx = await (await fetch(`js/config.js?nc=${Date.now()}`, { cache: 'no-store' })).text();
+    const m = tx.match(/"build"\s*:\s*"([^"]+)"/) || tx.match(/build:\s*'([^']+)'/);
+    if (!m || m[1] === cur || m[1] === 'dev') return;
+    updWaiting = true; tryRestart();
+  } catch {}
+}
+function tryRestart() {
+  if (!updWaiting) return;
+  const ae = document.activeElement;
+  const busy = $('#mini-layer')?.children.length || $('#sheet-layer')?.children.length || $('#boot')?.classList.contains('on') || (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA'));
+  if (busy) { setTimeout(tryRestart, 5000); return; }
+  updWaiting = false;
+  if (G.s) save();
+  toast(T('Обновление игры…', 'Оновлення гри…', 'Updating the game…'));
+  setTimeout(() => location.reload(), 700);
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
+setInterval(checkUpdate, 5 * 60 * 1000);
+
 function wire() {
   for (const ev of RERENDER_ON) on(ev, () => safeRerender(ev));
   on('apps', () => { if (!UI.app) renderHome(); });
@@ -64,6 +93,7 @@ function wire() {
     if (!UI.app && ++homeTick % 2 === 0) renderHome();
     eventsTick(!!($('#mini-layer').children.length || $('#sheet-layer').children.length || $('#boot').classList.contains('on')));
   });
+  on('sec', () => liveUpdate()); // a real second without a game minute (slow clock): keep countdowns moving
   on('lifeEvent', lifeEvent);
   on('log', () => { if (!UI.app) renderHome(); });
   on('day', () => { toast(T(`☀ День ${dayNum()}`, `☀ День ${dayNum()}`, `☀ Day ${dayNum()}`)); refreshAll(); });
@@ -106,6 +136,7 @@ function startGame() {
   renderHome();
   // how long the game was closed: that time is played out now
   const away = G.s.lastReal ? (Date.now() - G.s.lastReal) / 1000 : 0;
+  syncClock();
   startSim();
   $('#boot').classList.remove('on');
   if (away > 8) runCatchUp(away); else save();

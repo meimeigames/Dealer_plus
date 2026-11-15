@@ -4,6 +4,7 @@
 // about a minute, with a small chance the police are watching it (3–5 % when the thing is fully wiped, more with
 // traces left). Then, 3–7 minutes after the deal closes, the buyer may still complain to the police (5–7 %);
 // if they don't, the thing is sold for good.
+import { rt } from '../core/clock.js';
 import { G, emit } from '../core/state.js';
 import { T, L } from '../core/i18n.js';
 import { RNG } from '../core/rng.js';
@@ -125,7 +126,7 @@ export function bannedTick() {
         st.log.unshift({ t: s.t, title: o.title, res: 'sold', price: o.price });
         notify('dark', T('Тень: продано', 'Тінь: продано', 'Shade: sold'), `${o.title} · +${fmt(o.price)}`);
         // the buyer's window to complain: 3–7 minutes after the deal closed
-        st.after.push({ id: uid('bw'), title: o.title, price: o.price, p: o.complain, from: s.t, at: s.t + new RNG(uid('ba')).int(180, 420) });
+        st.after.push({ id: uid('bw'), title: o.title, price: o.price, p: o.complain, from: s.t, at: s.t + new RNG(uid('ba')).int(rt(3), rt(7)) });
       }
       st.log.length = Math.min(st.log.length, 20);
       emit('money'); emit('dark');

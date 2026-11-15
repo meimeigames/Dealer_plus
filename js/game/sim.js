@@ -1,7 +1,8 @@
-// Simulation loop: 1 real second = 1 game minute. When the game was closed, in the background or the phone
+// Simulation loop: the clock runs at the chosen speed (core/clock.js; by default a game day = 2 real hours). When the game was closed, in the background or the phone
 // was locked, the missed time is caught up on return (up to CATCHUP_MAX real seconds), so deliveries arrive,
 // rent is paid, tenants pay, timers run out — as if the game had kept going.
 import { G, emit, save } from '../core/state.js';
+import { speed, syncClock } from '../core/clock.js';
 import { T, L } from '../core/i18n.js';
 import { chance } from '../core/util.js';
 import { marketTick, feedFor } from './market.js';
@@ -52,13 +53,18 @@ export function initWorld() {
 }
 export function startSim() {
   if (timer) return;
-  let n = 0;
   timer = setInterval(() => {
     const now = Date.now(), gap = (now - lastBeat) / 1000; lastBeat = now;
     if (paused || !G.s || document.hidden || catching) return;
     // the page was frozen (phone locked, app switched) without a visibility event: catch up the gap
     if (gap > 8) { emit('away', gap - 1); return; }
-    tick(); if (dv().fast && ++n % 4 === 0) tick();
+    G.s.playSec = (G.s.playSec || 0) + 1;
+    syncClock(dv().fast ? 1.25 : 1);
+    // game minutes per real second at this speed; the fraction carries over (G.frac — for smooth countdowns)
+    G.frac = (G.frac || 0) + gpm() / 60;
+    let ran = false;
+    while (G.frac >= 1) { G.frac -= 1; tick(); ran = true; }
+    if (!ran) emit('sec');
   }, 1000);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { save(); return; }
@@ -69,12 +75,14 @@ export function startSim() {
   window.addEventListener('pagehide', save);
 }
 export const setPaused = (v) => { paused = v; };
+// game minutes per real minute (the clock speed × the difficulty speed‑up)
+export const gpm = () => speed() * (dv().fast ? 1.25 : 1);
 // run the missed game minutes in chunks (the UI shows progress), then report what happened meanwhile
 export async function catchUp(sec, onProgress) {
   const s = G.s;
   if (!s || catching || paused) return null;
   const real = Math.min(sec, CATCHUP_MAX);
-  const mins = Math.floor(real * (dv().fast ? 1.25 : 1));
+  const mins = Math.floor((real * gpm()) / 60);
   if (mins < 5) return null;
   catching = true; G.catchup = true;
   const before = { money: s.money, t: s.t, ids: new Set((s.inbox || []).map((m) => m.id)), sold: s.stats.sold || 0, profit: s.stats.profit || 0, inv: s.inv.length };
@@ -125,7 +133,6 @@ export function tick(fast = false) {
   if (!s) return;
   const prevDay = Math.floor(s.t / 1440);
   s.t++;
-  if (!fast) s.playSec++;
   marketTick();
   sellTick();
   feedbackTick();

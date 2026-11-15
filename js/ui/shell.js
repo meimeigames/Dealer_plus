@@ -236,14 +236,14 @@ export function liveUpdate() {
     else if (k === 'foodbar') el.style.width = s.food + '%';
   }
   for (const el of $$('[data-cd]')) {
-    const left = +el.dataset.cd - s.t;
+    const left = +el.dataset.cd - s.t - (G.frac || 0); // game minutes; shown as real time
     el.textContent = el.dataset.fmt === 'long' ? dur(left) : clockDur(left);
     if (left <= 0 && el.dataset.done) el.textContent = el.dataset.done;
   }
   for (const el of $$('[data-ago]')) { const tx = agoText(+el.dataset.ago); if (el.textContent !== tx) el.textContent = tx; }
   for (const el of $$('[data-bar-from]')) {
     const a = +el.dataset.barFrom, b = +el.dataset.barTo;
-    el.style.width = clamp(((s.t - a) / Math.max(1, b - a)) * 100, 0, 100) + '%';
+    el.style.width = clamp(((s.t + (G.frac || 0) - a) / Math.max(1, b - a)) * 100, 0, 100) + '%';
   }
 }
 

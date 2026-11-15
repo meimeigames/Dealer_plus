@@ -1,4 +1,5 @@
 // City classifieds feed: listings from NPC sellers, buying, haggling with sellers, rival snipes.
+import { rt } from '../core/clock.js';
 import { G, emit } from '../core/state.js';
 import { RNG } from '../core/rng.js';
 import { T, L } from '../core/i18n.js';
@@ -12,7 +13,7 @@ import { canStore, addItem, spend, stat, addXP, upLevel, notify, log, luggageCap
 import { day } from './economy.js';
 import { useEnergy, hasEnergy } from './needs.js';
 
-export const FEED_REFRESH = 300; // game minutes (= real seconds)
+export const FEED_REFRESH = () => rt(5); // the feed refreshes every 5 real minutes
 export const DISTRICTS = [
   ['Центр', 'Центр', 'Downtown'], ['Север', 'Північ', 'North'], ['Юг', 'Південь', 'South'], ['Запад', 'Захід', 'West'], ['Восток', 'Схід', 'East'],
   ['Спальный район', 'Спальний район', 'Suburbs'], ['Промзона', 'Промзона', 'Industrial'], ['Рынок', 'Ринок', 'Market'], ['Набережная', 'Набережна', 'Riverside'], ['Окраина', 'Околиця', 'Outskirts'],
@@ -89,7 +90,7 @@ export function generateFeed(cityId) {
   for (let i = 0; i < n; i++) items.push(makeListing(rng, cityId, { quality: rng.chance(0.08) ? 'junk' : 'any' }));
   // keep player's chats with sellers? feed refresh drops them (like the reference game)
   s.chats = s.chats.filter((c) => c.kind !== 'buy' || c.st === 'deal');
-  return { refreshAt: s.t + FEED_REFRESH, items, city: cityId };
+  return { refreshAt: s.t + FEED_REFRESH(), items, city: cityId };
 }
 export const feedTimeLeft = (cityId = G.s.player.city) => Math.max(0, (G.s.feeds[cityId]?.refreshAt || 0) - G.s.t);
 export function findListing(id) {

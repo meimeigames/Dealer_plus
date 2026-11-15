@@ -1,4 +1,5 @@
 // Jobs: vacancies, applications, interviews, shifts with minigames and career growth.
+import { rt } from '../core/clock.js';
 import { G, emit } from '../core/state.js';
 import { paperPenalty, marksCount } from './crime.js';
 import { spend as spendMoney } from './player.js';
@@ -81,7 +82,7 @@ export function orderDoc(k) {
   return { ok: true };
 }
 // applications: the first one can go out right away, after that there is a cooldown before the next one
-export const APPLY_COOLDOWN = 180; // game minutes = 3 real minutes
+export const APPLY_COOLDOWN = () => rt(3); // 3 real minutes at any clock speed
 export const nextApplyAt = () => G.s.job.nextApply || 0;
 export function vacancyWindow() {
   const at = nextApplyAt();
@@ -94,7 +95,7 @@ export function apply(jobId) {
   const job = jobById(jobId);
   if (!vacancyWindow(job).open) return false;
   if (jobDocs(job).some((k) => !docReady(k))) return false;
-  s.job.nextApply = s.t + APPLY_COOLDOWN;
+  s.job.nextApply = s.t + APPLY_COOLDOWN();
   const miss = reqOk(job);
   const rng = new RNG(`${s.id}:app:${jobId}:${s.t}`);
   const hr = npcName(rng, s.player.city).name;

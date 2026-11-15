@@ -18,15 +18,22 @@ export function plural(n, ru, uk, en) {
   if (a >= 2 && a <= 4 && (b < 12 || b > 14)) return f[1];
   return f[2];
 }
-export function dur(sec) {
+// durations on screen are real time. Game code passes game minutes; TIME_K = real seconds per game minute
+// (set by core/clock.js from the chosen clock speed). durReal() takes real seconds.
+let TIME_K = 1;
+export const setTimeK = (k) => { TIME_K = k > 0 ? k : 1; };
+export const timeK = () => TIME_K;
+export const dur = (gameMin) => durReal(gameMin * TIME_K);
+export function durReal(sec) {
   sec = Math.max(0, Math.round(sec));
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
   const H = T('ч', 'год', 'h'), M = T('мин', 'хв', 'min'), S = T('сек', 'сек', 's');
+  if (h >= 48) { const d = Math.floor(h / 24), hh = h % 24; return `${d} ${T('дн', 'дн', 'd')}${hh ? ` ${hh} ${H}` : ''}`; }
   if (h) return m ? `${h} ${H} ${m} ${M}` : `${h} ${H}`;
   if (m) return s ? `${m} ${M} ${s} ${S}` : `${m} ${M}`;
   return `${s} ${S}`;
 }
-export const clockDur = (sec) => { sec = Math.max(0, Math.round(sec)); return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`; };
+export const clockDur = (gameMin) => { let sec = Math.max(0, Math.round(gameMin * TIME_K)); return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`; };
 const MONTHS = {
   ru: ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'],
   uk: ['січня', 'лютого', 'березня', 'квітня', 'травня', 'червня', 'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня'],

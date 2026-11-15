@@ -5,6 +5,7 @@
 // Police checks come a few times over the next days (and the buyer checks after you sell it):
 // chance ≈ 3% + 45% × trace. Caught: the item is seized (or the buyer gets the police to make you pay), a fine
 // and a mark on your record. A hot item also sells for less on the open market — buyers check.
+import { rt } from '../core/clock.js';
 import { G, emit } from '../core/state.js';
 import { T, L } from '../core/i18n.js';
 import { RNG } from '../core/rng.js';
@@ -154,7 +155,7 @@ export function noteHotSale(it, price) {
   // the buyer's window to complain: 3–7 minutes after the deal closed; police stop watching the item
   const s = G.s, r = new RNG(uid('hb'));
   s.hotw = (s.hotw || []).filter((x) => x.id !== it.id);
-  s.hotw.push({ id: it.id, buyer: true, kind, grey: kind === 'grey', banned: kind === 'banned', title: itemTitle(it), at: s.t + r.int(180, 420), val: itemValue(it, s.player.city, 'true', { clean: true }), price, p: complaintRisk(it) });
+  s.hotw.push({ id: it.id, buyer: true, kind, grey: kind === 'grey', banned: kind === 'banned', title: itemTitle(it), at: s.t + r.int(rt(3), rt(7)), val: itemValue(it, s.player.city, 'true', { clean: true }), price, p: complaintRisk(it) });
 }
 // ---------------------------------------------------------------- selling Shade goods on Oliks & co.
 // Stolen, grey or forbidden: wipe the traces, sell it like anything else. At the deal itself there is a small

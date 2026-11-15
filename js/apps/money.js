@@ -7,7 +7,7 @@ import { esc, clamp, rnd } from '../core/util.js';
 import { fmt, rate, curCode, nicePrice, fmtNum, symOf } from '../core/money.js';
 import { CURRENCIES, countryOf } from '../data/world.js';
 import { icon } from '../ui/icons.js';
-import { go, rerender, toast, askPrice, confirmBox, choose, sheet, resolveSheet, ago, gameDate, UI, openApp } from '../ui/shell.js';
+import { go, rerender, toast, askPrice, confirmBox, choose, sheet, resolveSheet, closeSheet, ago, gameDate, UI, openApp } from '../ui/shell.js';
 import { empty, bar, kv, sparkline } from '../ui/comp.js';
 import { creditInfo, LOAN_TERMS, loanTotal, takeLoan, repayLoan, deposit, withdraw, CARDS, buyCard, TICKERS, buyStock, sellStock, numbersMarket, buyNumber, listNumber } from '../game/finance.js';
 import { REGIMES, taxDue, taxRate, taxBase, payTax, register, regFee, taxable, bizNeedsRegime } from '../game/life.js';
@@ -140,8 +140,37 @@ function govMain() {
       <label class="row mt small"><input type="checkbox" data-a="taxrem" ${s.settings.taxRemind !== false ? 'checked' : ''}> 🔔 ${T('Напоминать про налоги', 'Нагадувати про податки', 'Tax reminders')}</label></div>
     <div class="card"><h3>${T('Сегодня', 'Сьогодні', 'Today')}</h3><div class="stats mt"><div class="stat"><small>${T('Продано вещей', 'Продано речей', 'Items sold')}</small><b>${today('sold')}</b></div><div class="stat"><small>${T('Выручка', 'Виручка', 'Revenue')}</small><b>${fmt(today('revenue'))}</b></div><div class="stat"><small>${T('Прибыль с продаж', 'Прибуток з продажів', 'Sales profit')}</small><b class="${today('profit') >= 0 ? 'g' : 'r'}">${today('profit') >= 0 ? '+' : ''}${fmt(today('profit'))}</b></div><div class="stat"><small>${T('Казино', 'Казино', 'Casino')}</small><b class="${today('casino') >= 0 ? 'g' : 'r'}">${today('casino') >= 0 ? '+' : ''}${fmt(today('casino'))}</b></div></div></div>
     <h3 class="sub">${T('Налоговый режим', 'Податковий режим', 'Tax regime')}</h3>
-    <p class="small m" style="margin:-4px 2px 8px">${T('Можно перейти на любой режим в любой момент — и вверх, и вниз. Регистрация — госпошлина, сняться с учёта бесплатно. Налог за сегодня по старому режиму закрывается при переходе.', 'Можна перейти на будь-який режим будь-коли — і вгору, і вниз. Реєстрація — держмито, знятися з обліку безкоштовно. Податок за сьогодні за старим режимом закривається під час переходу.', 'Switch to any regime at any time, up or down. Registering costs a state fee, deregistering is free. Today’s tax under the old regime is settled on the switch.')}</p>
-    ${Object.entries(REGIMES).map(([k, r]) => { const cur = t.regime === k; const fee = regFee(k); const btn = cur ? `<span class="tag g">${T('текущий', 'поточний', 'current')}</span>` : k === 'none' ? `<button class="btn xs dark" data-a="reg" data-v="none">${T('Сняться с учёта', 'Знятися з обліку', 'Deregister')}</button>` : `<button class="btn xs" data-a="reg" data-v="${k}">${t.regime === 'none' ? T('Оформить', 'Оформити', 'Register') : T('Перейти', 'Перейти', 'Switch')} · ${fmt(fee)}</button>`; return `<div class="card ${cur ? 'hl' : ''}"><div class="row between"><h3>${esc(L(r.n))}</h3>${btn}</div><div class="d">${esc(L(r.d))}</div>${k !== 'none' ? `<div class="small m">${T('ставка', 'ставка', 'rate')} ${Math.round(r.rate * Math.max(0.06, countryOf(s.player.city).tax) * 100)}% · ${T('база', 'база', 'base')} ${fmt(r.base * countryOf(s.player.city).wage)}/${T('день', 'день', 'day')}${marksCount() ? ` · ${T('пошлина +', 'мито +', 'fee +')}${marksCount() * 25}% ${T('из‑за пометок', 'через позначки', 'for record marks')}` : ''}</div>` : ''}</div>`; }).join('')}`;
+    <p class="small m" style="margin:-4px 2px 8px">${T('Нажмите на режим — подробности и кнопка «Оформить» или «Отвязать». Переходить можно в любой момент.', 'Натисніть на режим — подробиці й кнопка «Оформити» або «Відвʼязати». Переходити можна будь-коли.', 'Tap a regime for details and a Register / Unlink button. Switch at any time.')}</p>
+    ${Object.entries(REGIMES).map(([k, r]) => { const cur = t.regime === k; const c = countryOf(s.player.city); return `<div class="card click tx-plan ${cur ? 'hl' : ''}" data-a="regInfo" data-v="${k}"><div class="row between"><h3>${esc(L(r.n))}</h3>${cur ? `<span class="tag g">${T('текущий', 'поточний', 'current')}</span>` : `<span class="tx-go">${k === 'none' ? T('без налогов', 'без податків', 'no tax') : fmt(regFee(k))} ›</span>`}</div><div class="d">${esc(L(r.d))}</div>${k !== 'none' ? `<div class="small m">${T('ставка', 'ставка', 'rate')} ${Math.round(r.rate * Math.max(0.06, c.tax) * 100)}% · ${T('база', 'база', 'base')} ${fmt(r.base * c.wage)}/${T('день', 'день', 'day')}</div>` : ''}</div>`; }).join('')}`;
+}
+
+// a regime's page: what it gives, what it costs, and Register / Unlink
+function regimeSheet(k) {
+  const s = G.s, t = s.tax, r = REGIMES[k], c = countryOf(s.player.city), cur = t.regime === k;
+  const rate = r.rate * Math.max(0.06, c.tax), base = r.base * c.wage, fee = regFee(k);
+  const lim = 250 * c.wage, inc = t.income;
+  const li = (x) => `<li>${x}</li>`;
+  const pts = {
+    none: [T('Налогов нет — ничего не платите.', 'Податків немає — нічого не платите.', 'No tax — you pay nothing.'), T(`Если за день заработать больше ${fmt(lim)}, в такой день налоговая с шансом 22 % приходит с проверкой и штрафует на 20 % дохода (в полдень придёт предупреждение).`, `Якщо за день заробити більше ${fmt(lim)}, у такий день податкова з шансом 22 % приходить із перевіркою й штрафує на 20 % доходу (опівдні прийде попередження).`, `Earn over ${fmt(lim)} in a day and the tax office may audit you (22 % that day) and fine 20 % of the income (you get a warning at noon).`), T('Магазины и заведения открывать нельзя, уже открытые стоят на паузе.', 'Магазини й заклади відкривати не можна, вже відкриті на паузі.', 'No shops or venues; open ones are paused.'), T('Кредитный лимит без бонуса, карты для бизнеса недоступны.', 'Кредитний ліміт без бонусу, картки для бізнесу недоступні.', 'No credit limit bonus, no business cards.')],
+    self: [T(`Налог ${Math.round(rate * 100)} % с дохода + ${fmt(base)} в день.`, `Податок ${Math.round(rate * 100)} % з доходу + ${fmt(base)} на день.`, `Tax ${Math.round(rate * 100)} % of income + ${fmt(base)} a day.`), T('Доход легальный — проверок и штрафов налоговой нет.', 'Дохід легальний — перевірок і штрафів податкової немає.', 'Legal income — no audits or fines.'), T('Магазины и заведения — нельзя (нужен ИП или компания).', 'Магазини й заклади — не можна (потрібен ФОП 3 групи або компанія).', 'No shops or venues (needs a business or company).'), T('Кредитный лимит без бонуса.', 'Кредитний ліміт без бонусу.', 'No credit limit bonus.')],
+    ip: [T(`Налог ${Math.round(rate * 100)} % с дохода + ${fmt(base)} в день.`, `Податок ${Math.round(rate * 100)} % з доходу + ${fmt(base)} на день.`, `Tax ${Math.round(rate * 100)} % of income + ${fmt(base)} a day.`), T('Можно открывать магазины («Бизнес» → точки продаж) и заведения: киоск, кофейня, бар, шаурмичная, СТО, автомойка.', 'Можна відкривати магазини («Бізнес» → точки продажу) і заклади: кіоск, кавʼярня, бар, шаурмічна, СТО, автомийка.', 'Open shops (Business → sales points) and venues: kiosk, café, bar, shawarma, garage, car wash.'), T('Кредитный лимит ×1,6, доступны карты для бизнеса.', 'Кредитний ліміт ×1,6, доступні картки для бізнесу.', 'Credit limit ×1.6, business cards available.')],
+    company: [T(`Налог ${Math.round(rate * 100)} % с дохода + ${fmt(base)} в день.`, `Податок ${Math.round(rate * 100)} % з доходу + ${fmt(base)} на день.`, `Tax ${Math.round(rate * 100)} % of income + ${fmt(base)} a day.`), T('Всё как у ИП: магазины и заведения.', 'Усе як у ФОП 3 групи: магазини й заклади.', 'Everything a business gets: shops and venues.'), T('Кредитный лимит ×3 — самые крупные кредиты, доступны карты для бизнеса.', 'Кредитний ліміт ×3 — найбільші кредити, доступні картки для бізнесу.', 'Credit limit ×3 — the biggest loans, business cards available.')],
+  }[k];
+  if (k !== 'none') pts.push(T('Налог начисляется каждый день: не оплатили до полуночи — долг +10 % и минус к кредитному рейтингу (есть автоплатёж).', 'Податок нараховується щодня: не сплатили до півночі — борг +10 % і мінус до кредитного рейтингу (є автоплатіж).', 'Tax is charged daily: unpaid by midnight → debt +10 % and a credit score hit (auto‑pay available).'));
+  const est = k === 'none' ? 0 : base + inc * rate;
+  const due = taxDue();
+  let h = `<h2>${esc(L(r.n))}${cur ? ` <span class="tag g">${T('текущий', 'поточний', 'current')}</span>` : ''}</h2><ul class="tx-pts">${pts.map(li).join('')}</ul>`;
+  if (k !== 'none') h += `<div class="kv"><span>${T('С сегодняшним доходом налог был бы', 'Із сьогоднішнім доходом податок був би', 'With today’s income the tax would be')} (${fmt(inc)})</span><b>${fmt(est)}</b></div>`;
+  if (!cur && k !== 'none') h += `<div class="kv"><span>${T('Госпошлина за оформление', 'Держмито за оформлення', 'State fee')}${marksCount() ? ` (+${marksCount() * 25}% ${T('за пометки', 'за позначки', 'for marks')})` : ''}</span><b>${fmt(fee)}</b></div>`;
+  const leaving = !cur || k !== 'none';
+  if (leaving && t.regime !== 'none' && due > 0 && (!cur || k !== 'none')) h += `<div class="small m mt">${T(`При переходе спишется налог за сегодня по режиму «${L(REGIMES[t.regime].n)}»: ${fmt(due)} (не хватит денег — уйдёт в долг).`, `Під час переходу спишеться податок за сьогодні за режимом «${L(REGIMES[t.regime].n)}»: ${fmt(due)} (не вистачить грошей — піде в борг).`, `Switching charges today’s tax under “${L(REGIMES[t.regime].n)}”: ${fmt(due)} (or it becomes debt).`)}</div>`;
+  const target = cur ? 'none' : k; // the current one can only be unlinked
+  if (bizNeedsRegime(target) && t.regime !== target) h += `<div class="small r mt"><b>${T('Магазины и заведения встанут на паузу, пока вы снова не оформите ИП или компанию.', 'Магазини й заклади стануть на паузу, доки ви знову не оформите ФОП 3 групи або компанію.', 'Shops and venues pause until you register a business or company again.')}</b></div>`;
+  if (cur && k === 'none') h += `<p class="small m mt">${T('Вы сейчас без регистрации. Чтобы оформиться, выберите другой режим.', 'Ви зараз без реєстрації. Щоб оформитися, оберіть інший режим.', 'You are unregistered. Pick another regime to register.')}</p><button class="btn dark block mt" data-a="closeSheet">${T('Закрыть', 'Закрити', 'Close')}</button>`;
+  else if (cur) h += `<button class="btn red block mt" data-a="regDo" data-v="none">${T('Отвязать', 'Відвʼязати', 'Unlink')} — ${T('станет «Без регистрации»', 'стане «Без реєстрації»', 'become Unregistered')}</button>`;
+  else if (k === 'none') h += `<button class="btn red block mt" data-a="regDo" data-v="none">${T(`Отвязать «${L(REGIMES[t.regime].n)}»`, `Відвʼязати «${L(REGIMES[t.regime].n)}»`, `Unlink “${L(REGIMES[t.regime].n)}”`)}</button>`;
+  else h += `<button class="btn block mt" data-a="regDo" data-v="${k}">${T('Оформить', 'Оформити', 'Register')} · ${fmt(fee)}</button>`;
+  return h;
 }
 export const govApp = {
   id: 'gov', glyph: 'bank', lvl: 1,
@@ -153,16 +182,12 @@ export const govApp = {
     pay: () => { if (payTax()) { sfx('ok'); toast(T('Налог оплачен', 'Податок сплачено', 'Tax paid'), 'g'); } else toast(T('Недостаточно средств', 'Недостатньо коштів', 'Insufficient funds'), 'r'); rerender(); },
     auto: (v, el) => { G.s.settings.autoTax = !G.s.settings.autoTax; rerender(); },
     taxrem: () => { G.s.settings.taxRemind = G.s.settings.taxRemind === false; rerender(); },
-    reg: async (k) => {
-      const r = REGIMES[k], t = G.s.tax, due = taxDue();
-      const lines = [esc(L(r.d))];
-      if (k !== 'none') lines.push(`${T('Госпошлина', 'Держмито', 'State fee')}: <b>${fmt(regFee(k))}</b>`);
-      if (due > 0) lines.push(T(`Налог за сегодня по режиму «${L(REGIMES[t.regime].n)}» — ${fmt(due)} — спишется сейчас (не хватит денег — станет долгом).`, `Податок за сьогодні за режимом «${L(REGIMES[t.regime].n)}» — ${fmt(due)} — спишеться зараз (не вистачить грошей — стане боргом).`, `Today’s tax under “${L(REGIMES[t.regime].n)}” — ${fmt(due)} — is charged now (or becomes debt).`));
-      if (bizNeedsRegime(k)) lines.push(`<b class="r">${T('Ваши магазины и заведения перестанут работать, пока вы снова не оформите ИП или компанию.', 'Ваші магазини й заклади перестануть працювати, доки ви знову не оформите ФОП 3 групи або компанію.', 'Your shops and venues stop trading until you register a business or company again.')}</b>`);
-      if (!(await confirmBox(L(r.n), lines.join('<br><br>'), k === 'none' ? T('Сняться с учёта', 'Знятися з обліку', 'Deregister') : t.regime === 'none' ? T('Оформить', 'Оформити', 'Register') : T('Перейти', 'Перейти', 'Switch'), undefined, bizNeedsRegime(k)))) return;
-      const res = register(k);
-      if (res.ok) { sfx('win'); toast(k === 'none' ? T('Вы сняты с учёта', 'Вас знято з обліку', 'Deregistered') : T(`Теперь вы: ${L(r.n)}`, `Тепер ви: ${L(r.n)}`, `You are now: ${L(r.n)}`), 'g'); if (res.toDebt) toast(T(`Налог ${fmt(res.toDebt)} ушёл в долг`, `Податок ${fmt(res.toDebt)} пішов у борг`, `Tax ${fmt(res.toDebt)} went to debt`), 'r'); }
-      else toast(T('Не хватает денег на пошлину', 'Не вистачає грошей на мито', 'Can’t afford the fee'), 'r');
+    regInfo: (k) => sheet(regimeSheet(k)),
+    regDo: (k) => {
+      const r = REGIMES[k], res = register(k);
+      closeSheet();
+      if (res.ok) { sfx(k === 'none' ? 'ok' : 'win'); toast(k === 'none' ? T('Отвязано — теперь вы без регистрации', 'Відвʼязано — тепер ви без реєстрації', 'Unlinked — you are now unregistered') : T(`Оформлено: ${L(r.n)}`, `Оформлено: ${L(r.n)}`, `Registered: ${L(r.n)}`), 'g'); if (res.toDebt) toast(T(`Налог ${fmt(res.toDebt)} ушёл в долг`, `Податок ${fmt(res.toDebt)} пішов у борг`, `Tax ${fmt(res.toDebt)} went to debt`), 'r'); }
+      else if (res.msg === 'money') toast(T('Не хватает денег на пошлину', 'Не вистачає грошей на мито', 'Can’t afford the fee'), 'r');
       rerender();
     },
   },

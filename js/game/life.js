@@ -128,9 +128,9 @@ export function afterSleep(hours) {
 // ---------------------------------------------------------------- taxes
 export const REGIMES = {
   none: { n: ['Без регистрации', 'Без реєстрації', 'Unregistered'], base: 0, rate: 0, reg: 0, d: ['Налоги не платишь, но налоговая может оштрафовать при больших доходах.', 'Податки не платиш, але податкова може оштрафувати за великі доходи.', 'No taxes, but big earnings can trigger audits and fines.'] },
-  self: { n: ['Самозанятый', 'ФОП 1 група', 'Sole trader'], base: 1, rate: 0.5, reg: 10, d: ['Низкий налог. Доступ к маркетплейсу.', 'Низький податок. Доступ до маркетплейсу.', 'Low tax. Unlocks the marketplace.'] },
-  ip: { n: ['ИП', 'ФОП 3 група', 'Business (LLP)'], base: 6, rate: 0.85, reg: 60, d: ['Можно открывать магазины.', 'Можна відкривати магазини.', 'Required to open stores.'] },
-  company: { n: ['ООО / Компания', 'ТОВ / Компанія', 'Company (Ltd)'], base: 30, rate: 1.05, reg: 600, d: ['Международная сеть, люкс‑площадка, крупные кредиты.', 'Міжнародна мережа, люкс‑майданчик, великі кредити.', 'International chain, luxury platform, bigger loans.'] },
+  self: { n: ['Самозанятый', 'ФОП 1 група', 'Sole trader'], base: 1, rate: 0.5, reg: 10, d: ['Низкий налог, доход легальный — налоговая не штрафует.', 'Низький податок, дохід легальний — податкова не штрафує.', 'Low tax, legal income — no tax fines.'] },
+  ip: { n: ['ИП', 'ФОП 3 група', 'Business (LLP)'], base: 6, rate: 0.85, reg: 60, d: ['Магазины и заведения, кредитный лимит ×1,6.', 'Магазини й заклади, кредитний ліміт ×1,6.', 'Shops and venues, credit limit ×1.6.'] },
+  company: { n: ['ООО / Компания', 'ТОВ / Компанія', 'Company (Ltd)'], base: 30, rate: 1.05, reg: 600, d: ['Магазины и заведения, кредитный лимит ×3 — для крупных кредитов.', 'Магазини й заклади, кредитний ліміт ×3 — для великих кредитів.', 'Shops and venues, credit limit ×3 for big loans.'] },
 };
 export const taxRate = () => { const r = REGIMES[G.s.tax.regime]; return r.rate * Math.max(0.06, countryOf(G.s.player.city).tax); };
 export const taxBase = () => REGIMES[G.s.tax.regime].base * countryOf(G.s.player.city).wage;
