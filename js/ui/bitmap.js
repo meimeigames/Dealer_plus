@@ -45,10 +45,14 @@ async function rasterize(it, o, size) {
   let photoOk = usesPhoto(it, o);
   if (photoOk) {
     const url = realPhoto(it, o.view).url;
-    try {
-      const [photo, grain] = await Promise.all([assetData(url), assetData('assets/photo/grain.webp')]);
-      embed = { photo, grain };
-    } catch (e) { photoFailed(url); dataCache.delete(url); photoOk = false; console.warn('photo missing, drawing instead', url); }
+    // one quiet retry before giving up (a request can fail while the app is updating or the signal drops)
+    for (let attempt = 0; attempt < 2 && !embed; attempt++) {
+      try {
+        const [photo, grain] = await Promise.all([assetData(url), assetData('assets/photo/grain.webp')]);
+        embed = { photo, grain };
+      } catch (e) { dataCache.delete(url); if (attempt === 0) await new Promise((r) => setTimeout(r, 1200)); }
+    }
+    if (!embed) { photoFailed(url); photoOk = false; o.__retry = true; console.warn('photo missing, drawing instead (will retry)', url); }
   }
   if (!photoOk) {
     const pick = spritePickFor(it, view, o);
@@ -85,11 +89,20 @@ function pump() {
     busy = false; setTimeout(pump, WAIT.size ? 40 : 0); return;
   }
   // yield to the UI between photos so scrolling stays smooth while the queue drains
-  const run = () => rasterize(job.it, job.o, job.size).then((url) => remember(key, url)).catch((e) => { console.warn('bitmap', e); FAILED.add(key); for (const el of document.querySelectorAll(`img[data-bm="${CSS.escape(key)}"]`)) el.replaceWith(fallback(job)); })
+  const run = () => rasterize(job.it, job.o, job.size).then((url) => { remember(key, url); if (job.o.__retry) retryLater(key, job); }).catch((e) => { console.warn('bitmap', e); FAILED.add(key); for (const el of document.querySelectorAll(`img[data-bm="${CSS.escape(key)}"]`)) el.replaceWith(fallback(job)); })
     .finally(() => { busy = false; setTimeout(pump, 0); });
   (window.requestIdleCallback || ((f) => setTimeout(f, 16)))(run, { timeout: 120 });
 }
 const FAILED = new Set();
+// the photo didn't load and the drawing was shown: try the real photo again a bit later
+function retryLater(key, job) {
+  delete job.o.__retry;
+  setTimeout(() => {
+    const old = URLS.get(key); URLS.delete(key); if (old) setTimeout(() => URL.revokeObjectURL(old), 2000);
+    if (!document.querySelector(`img[data-bm="${CSS.escape(key)}"]`)) return; // not on screen: it is redone when shown again
+    WAIT.set(key, { ...job, t: performance.now() }); pump();
+  }, 21000);
+}
 const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 function fallback(job) { const d = document.createElement('div'); d.className = 'bmsvg'; d.innerHTML = renderItem(job.it, job.o).svg; return d; }
 

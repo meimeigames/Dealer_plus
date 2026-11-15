@@ -9,9 +9,12 @@ const SETS = Object.fromEntries(Object.entries(PHOTO_FILES).map(([k, v]) => [k, 
 export const photoFile = (id) => { let h = 2166136261 >>> 0; for (let i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
 const FILE = new Map();
 const fileOf = (m) => { let f = FILE.get(m); if (!f) { f = photoFile(m); FILE.set(m, f); } return f; };
-// photos that failed to load on this device fall back to the drawing
-const BROKEN_URL = new Set();
-export const photoFailed = (url) => BROKEN_URL.add(url);
+// a photo that failed to load falls back to the drawing — but only for a short while: a hiccup (weak signal, the
+// app restarting onto a new version) must not leave an item drawn instead of photographed for the whole session
+const BROKEN_URL = new Map(); // url -> when it failed
+const RETRY_MS = 20000;
+export const photoFailed = (url) => BROKEN_URL.set(url, Date.now());
+const isBroken = (url) => { const t = BROKEN_URL.get(url); if (t == null) return false; if (Date.now() - t > RETRY_MS) { BROKEN_URL.delete(url); return false; } return true; };
 export const hasPhoto = (modelId) => { const f = fileOf(modelId); return SETS.clean?.has(f) || SETS.worn?.has(f) || SETS.broken?.has(f); };
 const SEVERE = new Set(['crack', 'backcrack', 'broken', 'dent', 'rust', 'tear', 'a_broken', 'bk_wheel', 'bk_dent', 'c_dent', 'c_rust', 'w_crack']);
 // which shot to show for this particular item (and angle: back / side are real photos of the other sides)
@@ -28,11 +31,11 @@ export function realPhoto(it, view = 'front') {
   else if (cond < 58 && has('worn')) v = 'worn';
   if (!has(v)) v = has('clean') ? 'clean' : has('worn') ? 'worn' : 'broken';
   const url = `assets/photos/${v}/${f}.webp`;
-  if (BROKEN_URL.has(url)) return null;
+  if (isBroken(url)) return null;
   if ((view === 'back' || view === 'side') && has(view)) {
     const u2 = `assets/photos/${view}/${f}.webp`;
     // the other sides are shot clean: grime and defects are drawn on top for a worn item
-    if (!BROKEN_URL.has(u2)) return { v: 'clean', f, url: u2, side: view, worn: v !== 'clean' };
+    if (!isBroken(u2)) return { v: 'clean', f, url: u2, side: view, worn: v !== 'clean' };
   }
   return { v, f, url };
 }

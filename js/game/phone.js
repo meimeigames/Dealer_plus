@@ -95,6 +95,15 @@ export function toggleVpn() { const s = G.s; if (s.vpn.until <= s.t) return fals
 // that are secretly hot (no label, the price is just a bit too good). A new batch every 4 hours.
 const DARK_CATS = ['phones', 'phones', 'electronics', 'consoles', 'watches', 'bags', 'sneakers', 'jewelry', 'bikes', 'perfume', 'clothing', 'instruments', 'cars'];
 const SELLERS = ['ghost_77', 'n1ght', 'tovar24', 'shadowbox', 'anon_seller', 'quiet_m', 'dropzone', 'sklad_bez_voprosov', 'tihiy_opt', 'grey_import', 'replica_lux', 'kot_v_meshke'];
+// the seller's handle fits what they sell (no «replica_lux» selling a stolen motorbike, no «grey_import» with boxes of cigarettes)
+const SELLERS_BY = {
+  hot: ['ghost_77', 'n1ght', 'quiet_m', 'dropzone', 'kot_v_meshke', 'tovar24', 'nochnoy_dvor'],
+  grey: ['grey_import', 'china_direct', 'tovar24', 'shadowbox', 'parallel_opt', 'bez_poshlin'],
+  replica: ['replica_lux', 'copy_1to1', 'top_quality_aaa', 'luxe_copy'],
+  banned: ['anon_seller', 'shadowbox', 'dropzone', 'zapretka_24', 'quiet_m'],
+  opt: ['sklad_bez_voprosov', 'tihiy_opt', 'korobki_24', 'opt_bez_bumag'],
+};
+const sellerFor = (rng, kind) => rng.pick(SELLERS_BY[kind] || SELLERS);
 export const DARK_KINDS = {
   hot: { ic: '🔥', n: ['Краденое', 'Крадене', 'Stolen'] },
   grey: { ic: '📦', n: ['Серый импорт', 'Сірий імпорт', 'Grey import'] },
@@ -124,18 +133,18 @@ function darkFeed() {
     // a deal that is too good may be a police test purchase — nothing on the listing gives it away
     const cheap = clamp((0.5 - k) / 0.3, 0, 1), dear = clamp(Math.log10(Math.max(1, clean) / 150) / 1.6, 0, 1);
     const pSting = kind === 'replica' ? 0 : 0.02 + 0.2 * cheap * (0.4 + 0.6 * dear) + (it.cond >= 90 ? 0.05 : 0);
-    s.dark.feed.push({ id: uid('dk'), item: it, kind: kind === 'hidden' ? 'grey' : kind, price: nicePrice(Math.max(5, clean * k), cur), seller: rng.pick(SELLERS), sting: rng.chance(pSting), clean });
+    s.dark.feed.push({ id: uid('dk'), item: it, kind: kind === 'hidden' ? 'grey' : kind, price: nicePrice(Math.max(5, clean * k), cur), seller: sellerFor(rng, kind === 'hidden' ? 'grey' : kind), sting: rng.chance(pSting), clean });
   }
   // forbidden goods: 2–4 lots per batch (they sell only back through the Shade)
   for (let i = 0, n = rng.int(2, 4); i < n; i++) {
     const b = bannedListing(rng, city);
     const pSting = 0.03 + (b.price / b.clean < 0.5 ? 0.06 : 0);
-    s.dark.feed.splice(rng.int(0, s.dark.feed.length), 0, { id: uid('dk'), item: b.it, kind: 'banned', price: b.price, seller: rng.pick(SELLERS), sting: rng.chance(pSting), clean: b.clean });
+    s.dark.feed.splice(rng.int(0, s.dark.feed.length), 0, { id: uid('dk'), item: b.it, kind: 'banned', price: b.price, seller: sellerFor(rng, 'banned'), sting: rng.chance(pSting), clean: b.clean });
   }
   // wholesale boxes of forbidden goods: 1–2 per batch — dear, but they sell fast and well
   for (let i = 0, n = rng.int(1, 2); i < n; i++) {
     const b = bannedBoxListing(rng, city);
-    s.dark.feed.splice(rng.int(0, s.dark.feed.length), 0, { id: uid('dk'), item: b.it, kind: 'opt', price: b.price, seller: rng.pick(SELLERS), sting: rng.chance(0.04), clean: b.clean });
+    s.dark.feed.splice(rng.int(0, s.dark.feed.length), 0, { id: uid('dk'), item: b.it, kind: 'opt', price: b.price, seller: sellerFor(rng, 'opt'), sting: rng.chance(0.04), clean: b.clean });
   }
   // now and then: a flagship in great shape for a fraction of its price. Usually bait, sometimes a real jackpot
   if (rng.chance(0.4)) {
@@ -146,7 +155,7 @@ function darkFeed() {
     const clean = itemValue(it, city, 'true');
     const hot = rng.chance(0.5);
     if (hot) makeHot(it, rng, { known: true });
-    s.dark.feed.splice(rng.int(0, s.dark.feed.length), 0, { id: uid('dk'), item: it, kind: hot ? 'hot' : 'grey', price: nicePrice(Math.max(5, clean * rng.float(0.18, 0.28)), cur), seller: rng.pick(SELLERS), sting: rng.chance(0.75), clean, bait: true });
+    s.dark.feed.splice(rng.int(0, s.dark.feed.length), 0, { id: uid('dk'), item: it, kind: hot ? 'hot' : 'grey', price: nicePrice(Math.max(5, clean * rng.float(0.18, 0.28)), cur), seller: sellerFor(rng, hot ? 'hot' : 'grey'), sting: rng.chance(0.75), clean, bait: true });
   }
   s.dark.at = s.t + 240 - (s.t % 240);
   return s.dark.feed;

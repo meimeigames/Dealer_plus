@@ -89,7 +89,9 @@ export function openApp(id, view = 'main', params = {}) {
   const r = view === 'main' && !Object.keys(params || {}).length ? UI.recent.find((x) => x.id === id) : null;
   UI.app = a;
   if (r) { UI.stack = r.stack.map((x) => ({ ...x })); UI.view = r.view; UI.params = r.params; Object.assign(UI.scroll, r.scroll); }
-  else { UI.view = view; UI.params = params; UI.stack = [{ view, params }]; }
+  // opened straight into an inner screen (a notification, a link from another app): the app's main screen sits
+  // underneath, so the back arrow leads there instead of closing the app
+  else { UI.view = view; UI.params = params; UI.stack = view !== 'main' && a.views?.main ? [{ view: 'main', params: {} }, { view, params }] : [{ view, params }]; }
   if (a.onOpen) a.onOpen(UI.params);
   clearUnread(id);
   const w = $('#appwin');
