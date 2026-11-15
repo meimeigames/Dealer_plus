@@ -360,6 +360,9 @@ const GLOBAL = {
   home: () => home(),
   tab: (v) => { UI.stack = [{ view: v, params: {} }]; UI.view = v; UI.params = {}; render(true); },
   closeSheet: () => closeSheet(),
+  // a badge in any profile → the achievement sheet (how to get it)
+  badgeinfo: (v, el) => import('../apps/misc.js').then((m) => m.achSheet(v, +el.dataset.t || 0)),
+  achinfo: (v) => import('../apps/misc.js').then((m) => m.achSheet(v)),
   resolve: (v) => resolveSheet(v),
   apStep: (v, el) => el.closest('.sheet')._step(+v),
   apOk: (v, el) => el.closest('.sheet')._ok(),

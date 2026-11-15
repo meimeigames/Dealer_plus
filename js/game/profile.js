@@ -64,8 +64,12 @@ export function prof() {
   return s.prof;
 }
 // earned badges: the best tier of each achievement (highest first), e.g. "sold3"
+// (shadow achievements stay private; long names get a short code — the server keeps 16 characters)
+const SHORT = { containersOpened: 'containers' };
+const LONG = Object.fromEntries(Object.entries(SHORT).map(([k, v]) => [v, k]));
+const badgeIc = (a) => BADGE_IC[a.stat] || a.ic || '🏅';
 export function myBadges() {
-  return ACH.map((a) => ({ stat: a.stat, t: achTier(a) })).filter((x) => x.t > 0).sort((a, b) => b.t - a.t).slice(0, 8).map((x) => x.stat + x.t);
+  return ACH.filter((a) => !a.shadow).map((a) => ({ stat: a.stat, t: achTier(a) })).filter((x) => x.t > 0).sort((a, b) => b.t - a.t).slice(0, 8).map((x) => (SHORT[x.stat] || x.stat) + x.t);
 }
 export function publicProfile() {
   const p = prof();
@@ -93,7 +97,9 @@ export const titleChip = (p) => (p?.t && p.t !== 'newbie' && TITLES.some((x) => 
 export const bannerCss = (id) => (BANNERS.find((x) => x.id === id) || BANNERS[0]).css;
 export function badgeHtml(code) {
   const m = /^([a-zA-Z]+)(\d)$/.exec(code || '');
-  if (!m || !BADGE_IC[m[1]]) return '';
-  const a = ACH.find((x) => x.stat === m[1]);
-  return `<span class="pbadge" style="--bc:${TIER_C[+m[2]] || '#999'}" title="${esc(a ? L(a.n) : '')}">${BADGE_IC[m[1]]}<i>${'★'.repeat(+m[2])}</i></span>`;
+  if (!m) return '';
+  const a = ACH.find((x) => x.stat === (LONG[m[1]] || m[1]));
+  if (!a || a.shadow) return '';
+  // tap → the achievement sheet: what it is, how to get it, your own progress
+  return `<button class="pbadge" style="--bc:${TIER_C[+m[2]] || '#999'}" data-a="badgeinfo" data-v="${a.stat}" data-t="${+m[2]}" title="${esc(L(a.n))}">${badgeIc(a)}<i>${'★'.repeat(+m[2])}</i></button>`;
 }

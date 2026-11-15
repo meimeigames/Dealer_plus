@@ -1491,6 +1491,8 @@ body.hdrag #home, body.hdrag .hpage, body.hdrag #dockbar { touch-action: none; }
 .ptitle { --pc: #2ef2a0; display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 99px; font-size: 11px; font-weight: 700; vertical-align: 2px; color: var(--pc); background: color-mix(in srgb, var(--pc) 14%, transparent); border: 1px solid color-mix(in srgb, var(--pc) 40%, transparent); white-space: nowrap; }
 .pbadge { --bc: #ccc; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 46px; height: 50px; border-radius: 12px; font-size: 20px; background: color-mix(in srgb, var(--bc) 14%, #111827); border: 1px solid color-mix(in srgb, var(--bc) 55%, transparent); }
 .pbadge i { font-style: normal; font-size: 8px; color: var(--bc); letter-spacing: -1px; }
+button.pbadge { padding: 0; color: inherit; font-family: inherit; font-size: 20px; line-height: 1.1; cursor: pointer; transition: transform .12s; }
+button.pbadge:active { transform: scale(.92); }
 .pp-badges { display: flex; flex-wrap: wrap; gap: 8px; }
 /* leaderboard rows */
 .lb-row[data-a] { cursor: pointer; }
