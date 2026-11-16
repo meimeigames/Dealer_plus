@@ -97,10 +97,10 @@ export function deleteFile(id) {
   emit('pc');
   return { ok: true };
 }
-// Defender: catches roughly half of what's running
+// Defender: catches roughly half of the malware — running or just sitting on disk
 export function defenderCatch() {
   const out = [];
-  for (const p of badProcs()) if (p.alive && Math.random() < 0.55) { p.alive = false; p.gone = true; out.push(p.name); }
+  for (const p of badProcs()) if (Math.random() < (p.alive ? 0.55 : 0.75)) { p.alive = false; p.gone = true; out.push(p.name); }
   if (out.length) { stat('virusRemoved', out.length); emit('pc'); }
   return out;
 }

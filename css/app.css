@@ -1335,6 +1335,7 @@ body.hdrag #home, body.hdrag .hpage, body.hdrag #dockbar { touch-action: none; }
 .tm-row { display: grid; grid-template-columns: 1fr 48px 64px; gap: 6px; padding: 7px 4px; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,.05); } .tm-row span:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
 .tm-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .tm-row.on { background: rgba(76,194,255,.15); border-radius: 6px; } .tm-th { opacity: .55; font-size: 11px; }
 .tm-det { padding: 6px 8px 10px; background: rgba(0,0,0,.25); border-radius: 8px; margin: 2px 0 6px; word-break: break-all; }
+.tm-dorm { margin: 8px 0 10px; padding: 8px 10px; border-radius: 10px; background: rgba(255,84,104,.12); border: 1px solid rgba(255,84,104,.45); }
 .pcd-lock { position: absolute; inset: var(--sat) 0 0 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center; background: linear-gradient(160deg, #0b2a6b, #051233); color: #fff; overflow-y: auto; }
 .lk-badge { font-size: 54px; } .pcd-lock h2 { margin: 0; font-size: 21px; } .pcd-lock p { font-size: 13.5px; line-height: 1.5; opacity: .9; margin: 0; }
 .lk-in { display: flex; gap: 6px; } .lk-in input { width: 140px; text-align: center; font: 22px var(--mono, monospace); letter-spacing: 6px; padding: 8px; border-radius: 8px; border: 0; } .lk-in button { padding: 8px 16px; border-radius: 8px; background: #ff5468; color: #fff; font-weight: 800; }

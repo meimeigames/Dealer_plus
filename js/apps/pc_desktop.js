@@ -5,7 +5,7 @@
 // Command line, Miner (GPU mining: payout vs electricity), Minesweeper, Notepad, Browser.
 // The desktop lives in its own layer under sheets/toasts, so file previews and dialogs open on top of it.
 import { G, on } from '../core/state.js';
-import { T, L } from '../core/i18n.js';
+import { T, L, clockDur } from '../core/i18n.js';
 import { esc, clamp } from '../core/util.js';
 import { fmt } from '../core/money.js';
 import { MODEL, DEFECTS } from '../data/catalog.js';
@@ -313,9 +313,16 @@ function taskmgr() {
   const cpu = Math.min(100, list.reduce((a, p) => a + p.cpu, 0) + 3), mem = Math.min(97, Math.round(list.reduce((a, p) => a + p.mem, 0) / 80));
   const sel = D.tm && list.find((p) => p.id === D.tm);
   return `<div class="tm-head"><div><small>${T('ЦП', 'ЦП', 'CPU')}</small><b class="${cpu > 80 ? 'r' : ''}">${cpu}%</b><div class="tm-bar"><i style="width:${cpu}%;background:${cpu > 80 ? '#ff5468' : '#4cc2ff'}"></i></div></div><div><small>${T('Память', 'Памʼять', 'Memory')}</small><b>${mem}%</b><div class="tm-bar"><i style="width:${mem}%"></i></div></div></div>
+    ${dormantBlock()}
     <div class="tm-row tm-th"><span>${T('Имя', 'Імʼя', 'Name')}</span><span>${T('ЦП', 'ЦП', 'CPU')}</span><span>${T('Память', 'Памʼять', 'Mem')}</span></div>
     ${list.map((p) => `<div class="tm-row ${D.tm === p.id ? 'on' : ''}" ${pa('tmsel', p.id)}><span>${p.app ? '🪟' : '⚙️'} ${esc(p.name)}</span><span class="${p.cpu > 40 ? 'r' : ''}">${p.cpu}%</span><span>${p.mem} MB</span></div>${D.tm === p.id ? `<div class="tm-det"><div class="small">📁 ${esc(p.path)}${esc(p.path.endsWith('.exe') ? '' : p.name)}</div><div class="small m">${T('Издатель', 'Видавець', 'Publisher')}: ${esc(p.pub)}</div><div class="pcd-btns"><button class="btn xs" ${pa('tmkill', p.id)}>${T('Снять задачу', 'Зняти задачу', 'End task')}</button>${p.bad ? `<button class="btn xs dark" ${pa('tmdel', p.id)}>🗑 ${T('Открыть расположение и удалить', 'Відкрити розташування й видалити', 'Open location and delete')}</button>` : ''}</div></div>` : ''}`).join('')}
-    ${badProcs().filter((p) => !p.alive).length ? `<div class="small m mt">⏳ ${T('Завершённые подозрительные процессы могут перезапуститься, пока их файл на диске.', 'Завершені підозрілі процеси можуть перезапуститися, поки їхній файл на диску.', 'Ended suspicious processes can restart while their file is on disk.')}</div>` : ''}`;
+`;
+}
+// ended malware whose file is still on disk: listed here so the file can be deleted before it restarts
+function dormantBlock() {
+  const dead = badProcs().filter((p) => !p.alive);
+  if (!dead.length) return '';
+  return `<div class="tm-dorm"><div class="small"><b>⏸ ${T('Завершены, но файл ещё на диске', 'Завершено, але файл ще на диску', 'Ended, but the file is still on disk')}</b></div><div class="tiny m mb">${T('Удалите файл, иначе процесс перезапустится сам.', 'Видаліть файл, інакше процес перезапуститься сам.', 'Delete the file or the process restarts by itself.')}</div>${dead.map((p) => `<div class="tm-det"><div class="small">⚙️ ${esc(p.name)} · <span class="m">${T('перезапуск через', 'перезапуск через', 'restarts in')} ${clockDur(Math.max(1, (p.respawn || G.s.t) - G.s.t))}</span></div><div class="small m">📁 ${esc(p.path)}${esc(p.name)}</div><div class="pcd-btns"><button class="btn xs dark" ${pa('tmdel', p.id)}>🗑 ${T('Удалить файл', 'Видалити файл', 'Delete the file')}</button></div></div>`).join('')}</div>`;
 }
 // ---------------------------------------------------------------- winlocker / blue screen
 function renderLock() {
@@ -388,7 +395,7 @@ async function onClick(e) {
     case 'tmkill': {
       const r = endTask(v);
       if (r.bsod) { bsod(); return; }
-      sfx('tap'); toast(r.bad ? T('Процесс завершён. Нагрузка упала… пока что', 'Процес завершено. Навантаження впало… поки що', 'Process ended. The load dropped… for now') : T('Процесс завершён', 'Процес завершено', 'Process ended'), r.bad ? 'g' : '');
+      sfx('tap'); toast(r.bad ? T('Процесс завершён. Теперь удалите его файл (вверху окна), иначе он запустится снова', 'Процес завершено. Тепер видаліть його файл (угорі вікна), інакше він запуститься знову', 'Process ended. Now delete its file (top of the window) or it starts again') : T('Процесс завершён', 'Процес завершено', 'Process ended'), r.bad ? 'g' : '');
       render(); return;
     }
     case 'tmdel': { const r = deleteFile(v); if (r.ok) { sfx('win'); toast(T('Файл удалён — больше не запустится', 'Файл видалено — більше не запуститься', 'File deleted — it won’t come back'), 'g'); D.tm = null; } else toast(r.msg || '—', 'r'); render(); return; }
