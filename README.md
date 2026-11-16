@@ -8,7 +8,7 @@
 
 1. **Один раз включите Pages:** репозиторий → **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 2. Откройте **Actions → «Build & deploy PWA (GitHub Pages)» → Run workflow** (или просто запушьте коммит).
-3. Игра будет по адресу: **https://abyzer-1337.github.io/Dealer_plus/**
+3. Игра будет по адресу: **https://meimeigames.github.io/Dealer_plus/**
 
 ### 📲 Установка на iPhone
 Safari → открыть ссылку → кнопка **«Поделиться»** → **«На экран „Домой“»**. Игра запускается во весь экран, без адресной строки, и работает офлайн (service worker).
